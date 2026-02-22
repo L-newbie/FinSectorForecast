@@ -6,8 +6,8 @@ data:
   source: akshare
   # 历史数据天数
   history_days: 365
-  # 特征窗口天数 (用于训练的天数)
-  feature_window: 30
+  # 特征窗口天数 (状态序列特征 决定了模型能看到的历史信息长度)
+  feature_window: 60
   # 网络请求超时（秒）
   timeout: 30
   # 最大重试次数
@@ -69,32 +69,32 @@ model:
   classifier:
     name: lightgbm
     params:
-      n_estimators: 100
-      max_depth: 6
-      learning_rate: 0.1
-      num_leaves: 31
-      min_child_samples: 20
+      n_estimators: 200
+      max_depth: 8
+      learning_rate: 0.05
+      num_leaves: 64
+      min_child_samples: 10
 
   # 回归模型
   regressor:
     name: lightgbm
     params:
-      n_estimators: 100
-      max_depth: 6
-      learning_rate: 0.1
-      num_leaves: 31
-      min_child_samples: 20
+      n_estimators: 200
+      max_depth: 8
+      learning_rate: 0.05
+      num_leaves: 64
+      min_child_samples: 10
 
   # 训练配置
   training:
     test_size: 0.2
     validation_split: 0.2
-    early_stopping_rounds: 10
+    early_stopping_rounds: 15
 
 # 预测配置
 predict:
   # 上涨概率阈值
-  probability_threshold: 0.6
+  probability_threshold: 0.8
   # 置信区间
   confidence_interval: 0.95
 

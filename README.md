@@ -1,7 +1,7 @@
-# 📈 板块次日涨跌预测系统
+# 📈 A股金融板块预测系统
 
 基于历史30天的资金流向、涨跌幅等技术指标，预测板块第二天继续上涨的概率及涨幅。
-在线预览: https://L-newbie.github.io/FinSectorForecast/
+
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-2.3+-green.svg)](https://flask.palletsprojects.com/)
@@ -116,19 +116,6 @@ git remote add origin https://github.com/你的用户名/FinSectorForecast.git
 git push -u origin main
 ```
 
-### 后续提交
-
-```bash
-# 添加修改的文件
-git add .
-
-# 提交修改
-git commit -m "描述你的修改"
-
-# 推送到 GitHub
-git push
-```
-
 ### 分支管理
 
 ```bash
@@ -140,89 +127,6 @@ git checkout main
 
 # 合并分支
 git merge feature/你的功能名
-```
-
----
-
-## 🌐 部署到 GitHub Pages
-
-### 方法一：使用 docs 目录
-
-1. 在项目根目录创建 `docs` 文件夹
-2. 将静态文件放入 `docs` 目录
-3. 在 GitHub 仓库设置中启用 GitHub Pages，Source 选择 `docs` 文件夹
-
-```bash
-# 示例：创建docs目录并添加静态文件
-mkdir docs
-# 将你的HTML/CSS/JS文件复制到docs目录
-git add docs/
-git commit -m "Add static files for GitHub Pages"
-git push
-```
-
-### 方法二：使用 gh-pages 分支
-
-```bash
-# 安装 gh-pages 工具（可选）
-npm install -g gh-pages
-
-# 或者使用 Python
-pip install ghp-import
-
-# 部署 docs 目录到 gh-pages 分支
-ghp-import -p docs/
-
-# 或者使用 git subtree
-git subtree push --prefix docs origin gh-pages
-```
-
-### 方法三：使用 GitHub Actions 自动部署
-
-创建 `.github/workflows/deploy.yml`：
-
-```yaml
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.8'
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-      
-      - name: Build static files
-        run: |
-          # 这里添加生成静态文件的命令
-          # 例如：python build.py
-          mkdir -p docs
-      
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
-```
-
-### GitHub Pages 访问
-
-部署完成后，通过以下地址访问：
-
-```
-https://你的用户名.github.io/FinSectorForecast/
 ```
 
 ## ⚠️ 风险提示
