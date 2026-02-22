@@ -1,0 +1,769 @@
+{% extends "base.html" %}
+
+{% block title %}模型训练 - FinSectorForecast{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-brain me-2 text-success"></i>
+            模型训练
+        </h2>
+    </div>
+</div>
+
+<!-- 板块选择 -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card has-dropdown">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-graduation-cap me-2"></i>板块选择（可多选）</span>
+                <button class="btn btn-outline-primary btn-sm" onclick="toggleParamsPanel()">
+                    <i class="fas fa-sliders-h me-1"></i>训练参数配置
+                </button>
+            </div>
+            <div class="card-body" style="position: relative; overflow: visible; ">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="dropdown" id="trainSectorDropdownContainer">
+                            <button class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" 
+                                    type="button" id="trainSectorDropdownBtn" onclick="toggleTrainSectorDropdown()">
+                                <span id="trainSelectedSectorsText">请选择板块</span>
+                                <i class="fas fa-chevron-down" id="trainSectorDropdownIcon"></i>
+                            </button>
+                            <div class="dropdown-menu w-100 p-3" id="trainSectorDropdownMenu" style="display: none; position: absolute; z-index: 9999; max-height: 400px; overflow-y: auto; top: 100%; left: 0;">
+                                <div class="mb-2">
+                                    <input type="text" class="form-control form-control-sm" id="trainSectorSearchInput" placeholder="搜索板块..." oninput="filterTrainSectors(this.value)" style="color: black !important;">
+                                </div>
+                                <div class="mb-2 d-flex gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllTrainSectors()">全选</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllTrainSectors()">清空</button>
+                                    <button type="button" class="btn btn-sm btn-primary ms-auto" onclick="confirmTrainSectorSelection()">确认</button>
+                                </div>
+                                <hr class="my-2">
+                                <div id="trainSectorCheckboxes">
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        <span class="ms-2 text-muted">正在加载板块列表...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-success w-100 py-3" onclick="trainSelectedSectors()">
+                            <i class="fas fa-play me-1"></i>开始训练
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 训练进度 -->
+                <div class="mt-4" id="progressSection" style="display: none;">
+                    <div class="card" style="background: rgba(0,0,0,0.2);">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="loading-spinner me-3" id="trainSpinner"></div>
+                                <div>
+                                    <h5 class="mb-0" id="trainStatus">训练中...</h5>
+                                    <small class="text-muted" id="trainDetail">请稍候</small>
+                                </div>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="trainProgress" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 训练结果 -->
+                <div class="mt-4" id="resultSection" style="display: none;">
+                    <div class="card" style="background: rgba(0,0,0,0.2);">
+                        <div class="card-header">
+                            <i class="fas fa-check-circle me-2"></i>训练结果
+                        </div>
+                        <div class="card-body">
+                            <div id="resultContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 右侧参数配置面板 -->
+<div class="params-panel" id="paramsPanel">
+    <div class="params-panel-header">
+        <h5><i class="fas fa-sliders-h me-2"></i>训练参数配置</h5>
+        <button class="btn-close-params" onclick="toggleParamsPanel()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="params-panel-body">
+        <!-- 数据参数 -->
+        <div class="param-section">
+            <h6 class="text-primary mb-3"><i class="fas fa-database me-2"></i>数据参数</h6>
+            <div class="mb-3">
+                <label class="form-label">历史数据天数</label>
+                <input type="number" class="form-control" id="historyDays" value="365" min="30" max="730">
+                <small class="text-muted">用于训练的历史数据天数 (30-730)</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">特征窗口天数</label>
+                <input type="number" class="form-control" id="featureWindow" value="30" min="5" max="90">
+                <small class="text-muted">计算技术指标的窗口期</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">测试集比例</label>
+                <input type="range" class="form-range" id="testSize" min="0.1" max="0.4" step="0.05" value="0.2">
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">10%</small>
+                    <span id="testSizeValue" class="badge bg-primary">20%</span>
+                    <small class="text-muted">40%</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 分类模型参数 -->
+        <div class="param-section">
+            <h6 class="text-success mb-3"><i class="fas fa-check-circle me-2"></i>分类模型参数</h6>
+            <div class="mb-3">
+                <label class="form-label">迭代次数 (n_estimators)</label>
+                <input type="number" class="form-control" id="classifierN_estimators" value="100" min="10" max="500">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">最大深度 (max_depth)</label>
+                <input type="range" class="form-range" id="classifierMaxDepth" min="3" max="15" step="1" value="6">
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">3</small>
+                    <span id="classifierMaxDepthValue" class="badge bg-success">6</span>
+                    <small class="text-muted">15</small>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">学习率 (learning_rate)</label>
+                <input type="number" class="form-control" id="classifierLearningRate" value="0.1" min="0.01" max="0.5" step="0.01">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">叶子节点数 (num_leaves)</label>
+                <input type="number" class="form-control" id="classifierNumLeaves" value="31" min="7" max="127">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">最小样本数 (min_child_samples)</label>
+                <input type="number" class="form-control" id="classifierMinChildSamples" value="20" min="5" max="100">
+            </div>
+        </div>
+        
+        <!-- 回归模型参数 -->
+        <div class="param-section">
+            <h6 class="text-warning mb-3" style="color: #ffd43b !important;"><i class="fas fa-chart-line me-2"></i>回归模型参数</h6>
+            <div class="mb-3">
+                <label class="form-label">迭代次数 (n_estimators)</label>
+                <input type="number" class="form-control" id="regressorN_estimators" value="100" min="10" max="500">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">最大深度 (max_depth)</label>
+                <input type="range" class="form-range" id="regressorMaxDepth" min="3" max="15" step="1" value="6">
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">3</small>
+                    <span id="regressorMaxDepthValue" class="badge bg-warning" style="color: #333;">6</span>
+                    <small class="text-muted">15</small>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">学习率 (learning_rate)</label>
+                <input type="number" class="form-control" id="regressorLearningRate" value="0.1" min="0.01" max="0.5" step="0.01">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">叶子节点数 (num_leaves)</label>
+                <input type="number" class="form-control" id="regressorNumLeaves" value="31" min="7" max="127">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">最小样本数 (min_child_samples)</label>
+                <input type="number" class="form-control" id="regressorMinChildSamples" value="20" min="5" max="100">
+            </div>
+        </div>
+        
+        <button class="btn btn-primary w-100 mt-3" onclick="toggleParamsPanel()">
+            <i class="fas fa-check me-1"></i>确认配置
+        </button>
+    </div>
+</div>
+
+<!-- 遮罩层 -->
+<div class="params-overlay" id="paramsOverlay" onclick="toggleParamsPanel()"></div>
+
+<style>
+/* 参数面板样式 */
+.params-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: var(--card-bg);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    box-shadow: -5px 0 30px rgba(0,0,0,0.5);
+    z-index: 10002;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+}
+
+.params-panel.open {
+    right: 0;
+}
+
+.params-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.params-panel-header h5 {
+    margin: 0;
+    color: var(--primary-color);
+}
+
+.btn-close-params {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: color 0.2s ease;
+}
+
+.btn-close-params:hover {
+    color: var(--text-primary);
+}
+
+.params-panel-body {
+    padding: 1.5rem;
+}
+
+.param-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.param-section:last-of-type {
+    border-bottom: none;
+}
+
+/* 遮罩层样式 */
+.params-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 10001;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.params-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 存储选中的板块
+let selectedTrainSectors = [];
+
+// 任务状态缓存键名
+const TASK_KEY_TRAINING = 'training_task_status';
+
+// 标记是否正在训练中（防止重复提交）
+let isTrainingInProgress = false;
+
+// 异步加载板块列表
+async function loadTrainSectors() {
+    const sectorListEl = document.getElementById('trainSectorCheckboxes');
+    if (!sectorListEl) return;
+    
+    try {
+        const response = await fetch('/api/sectors');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            sectorListEl.innerHTML = result.data.map(sector => 
+                `<div class="train-sector-item" data-sector="${sector}" onclick="toggleTrainSectorItem(this, '${sector}')" style="cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-bottom: 2px; background: transparent;">
+                    ${sector}
+                </div>`
+            ).join('');
+        } else {
+            sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败</div>';
+        }
+    } catch (e) {
+        console.error('加载板块列表失败:', e);
+        sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败: ' + e.message + '</div>';
+    }
+}
+
+// 页面加载完成后异步加载板块列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadTrainSectors();
+});
+
+// 保存任务状态到本地存储
+function saveTrainingTaskStatus(sectors, status) {
+    try {
+        const taskData = {
+            taskType: 'training',
+            sectors: sectors,
+            status: status,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(TASK_KEY_TRAINING, JSON.stringify(taskData));
+        console.log('训练任务状态已保存:', taskData);
+    } catch (e) {
+        console.error('保存训练任务状态失败:', e);
+    }
+}
+
+// 获取任务状态
+function getTrainingTaskStatus() {
+    try {
+        const stored = localStorage.getItem(TASK_KEY_TRAINING);
+        if (stored) {
+            const taskData = JSON.parse(stored);
+            // 检查状态是否过期（超过1小时的任务状态不再自动恢复）
+            const taskTime = new Date(taskData.timestamp);
+            const now = new Date();
+            const hoursDiff = (now - taskTime) / (1000 * 60 * 60);
+            
+            if (hoursDiff > 1) {
+                // 状态超过1小时，清除它
+                clearTrainingTaskStatus();
+                return null;
+            }
+            return taskData;
+        }
+    } catch (e) {
+        console.error('获取训练任务状态失败:', e);
+    }
+    return null;
+}
+
+// 清除任务状态
+function clearTrainingTaskStatus() {
+    try {
+        localStorage.removeItem(TASK_KEY_TRAINING);
+    } catch (e) {
+        console.error('清除训练任务状态失败:', e);
+    }
+}
+
+// 页面加载时检查并恢复任务状态
+function checkAndRestoreTrainingTask() {
+    const taskStatus = getTrainingTaskStatus();
+    if (taskStatus && taskStatus.status === 'running' && taskStatus.sectors) {
+        const sectors = taskStatus.sectors;
+        console.log('检测到未完成的训练任务:', sectors);
+        
+        // 恢复选中的板块
+        selectedTrainSectors = sectors.slice();
+        
+        // 更新UI显示
+        sectors.forEach(sector => {
+            const item = document.querySelector(`.train-sector-item[data-sector="${sector}"]`);
+            if (item) {
+                item.dataset.selected = 'true';
+                item.style.background = 'rgba(77, 163, 255, 0.2)';
+            }
+        });
+        updateTrainSelectedText();
+        
+        // 显示训练进度状态
+        document.getElementById('progressSection').style.display = 'block';
+        document.getElementById('trainStatus').textContent = `正在训练 ${sectors.length} 个板块...`;
+        document.getElementById('trainDetail').textContent = '请稍候...';
+        document.getElementById('trainProgress').style.width = '50%';
+        document.getElementById('trainSpinner').style.display = 'inline-block';
+        
+        // 重新执行训练操作
+        startTrainingRestore();
+    }
+}
+
+// 重新执行训练（恢复模式）
+function startTrainingRestore() {
+    // 检查是否已有训练正在进行
+    if (isTrainingInProgress) {
+        console.log('训练正在进行中，跳过恢复训练');
+        clearTrainingTaskStatus();
+        return;
+    }
+    
+    const sectors = getSelectedSectors();
+    if (sectors.length === 0) {
+        clearTrainingTaskStatus();
+        return;
+    }
+    
+    // 设置训练中标记
+    isTrainingInProgress = true;
+    
+    const params = getTrainingParams();
+    
+    fetch('/api/train/multi', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sectors, params})
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearTrainingTaskStatus();
+        isTrainingInProgress = false; // 重置训练标记
+        
+        if (data.success) {
+            let resultHtml = `
+                <div class="alert alert-success" style="font-size: 1.1rem;">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong style="color: #5dd879;">训练完成！</strong> 成功训练 ${data.success_count} 个板块
+                </div>
+                <div class="mt-3">
+                    <h6 style="color: #fff; font-size: 1.15rem; margin-bottom: 1rem; font-weight: 600;">各板块训练结果:</h6>
+                    <div class="table-responsive">
+                            <table class="table table-sm table-dark result-table" style="background: rgba(15, 15, 25, 0.95);">
+                            <thead>
+                                <tr>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">板块</th>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">状态</th>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">分类准确率</th>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">回归R²</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            for (const [sector, result] of Object.entries(data.results)) {
+                const hasError = result.error;
+                const classifierMetrics = result.classifier && result.classifier.metrics;
+                const regressorMetrics = result.regressor && result.regressor.metrics;
+                resultHtml += `
+                    <tr style="background: rgba(20, 20, 35, 0.9);">
+                        <td style="color: #fff; font-weight: 700; font-size: 1rem;">${sector}</td>
+                        <td><span class="badge ${hasError ? 'badge-soft-danger' : 'badge-soft-success'}" style="font-size: 0.9rem;">${hasError ? '失败' : '完成'}</span></td>
+                        <td style="color: #4da3ff; font-weight: 700; font-size: 1rem;">${!hasError && classifierMetrics ? (classifierMetrics.accuracy * 100).toFixed(1) + '%' : '--'}</td>
+                        <td style="color: #5dd879; font-weight: 700; font-size: 1rem;">${!hasError && regressorMetrics ? regressorMetrics.r2.toFixed(3) : '--'}</td>
+                    </tr>
+                `;
+            }
+            
+            resultHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            showResult(resultHtml);
+        } else {
+            showResult(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    训练失败: ${data.error}
+                </div>
+            `);
+        }
+    })
+    .catch(error => {
+        clearTrainingTaskStatus();
+        isTrainingInProgress = false; // 重置训练标记
+        showResult(`
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                网络错误: ${error.message}
+            </div>
+        `);
+    });
+}
+
+document.getElementById('classifierMaxDepth').addEventListener('input', function() {
+    document.getElementById('classifierMaxDepthValue').textContent = this.value;
+});
+
+document.getElementById('regressorMaxDepth').addEventListener('input', function() {
+    document.getElementById('regressorMaxDepthValue').textContent = this.value;
+});
+
+// 切换参数面板
+function toggleParamsPanel() {
+    const panel = document.getElementById('paramsPanel');
+    const overlay = document.getElementById('paramsOverlay');
+    panel.classList.toggle('open');
+    overlay.classList.toggle('open');
+}
+
+// 获取当前训练参数
+function getTrainingParams() {
+    return {
+        data: {
+            history_days: parseInt(document.getElementById('historyDays').value),
+            feature_window: parseInt(document.getElementById('featureWindow').value)
+        },
+        model: {
+            classifier: {
+                name: 'lightgbm',
+                params: {
+                    n_estimators: parseInt(document.getElementById('classifierN_estimators').value),
+                    max_depth: parseInt(document.getElementById('classifierMaxDepth').value),
+                    learning_rate: parseFloat(document.getElementById('classifierLearningRate').value),
+                    num_leaves: parseInt(document.getElementById('classifierNumLeaves').value),
+                    min_child_samples: parseInt(document.getElementById('classifierMinChildSamples').value)
+                }
+            },
+            regressor: {
+                name: 'lightgbm',
+                params: {
+                    n_estimators: parseInt(document.getElementById('regressorN_estimators').value),
+                    max_depth: parseInt(document.getElementById('regressorMaxDepth').value),
+                    learning_rate: parseFloat(document.getElementById('regressorLearningRate').value),
+                    num_leaves: parseInt(document.getElementById('regressorNumLeaves').value),
+                    min_child_samples: parseInt(document.getElementById('regressorMinChildSamples').value)
+                }
+            },
+            training: {
+                test_size: parseFloat(document.getElementById('testSize').value)
+            }
+        }
+    };
+}
+
+// 下拉框控制
+function toggleTrainSectorDropdown() {
+    const menu = document.getElementById('trainSectorDropdownMenu');
+    const icon = document.getElementById('trainSectorDropdownIcon');
+    if (menu.style.display === 'none') {
+        menu.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+        // 清空搜索框
+        document.getElementById('trainSectorSearchInput').value = '';
+        filterTrainSectors('');
+    } else {
+        menu.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+// 搜索过滤板块
+function filterTrainSectors(keyword) {
+    const items = document.querySelectorAll('.train-sector-item');
+    const lowerKeyword = keyword.toLowerCase();
+    items.forEach(item => {
+        const sectorName = item.dataset.sector.toLowerCase();
+        if (sectorName.includes(lowerKeyword)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// 点击外部收起下拉框
+document.addEventListener('click', function(event) {
+    const container = document.getElementById('trainSectorDropdownContainer');
+    const menu = document.getElementById('trainSectorDropdownMenu');
+    const icon = document.getElementById('trainSectorDropdownIcon');
+    
+    if (container && !container.contains(event.target)) {
+        menu.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+});
+
+// 点击板块项切换选中状态
+function toggleTrainSectorItem(element, sector) {
+    const isSelected = element.dataset.selected === 'true';
+    if (isSelected) {
+        element.dataset.selected = 'false';
+        element.style.background = 'transparent';
+        selectedTrainSectors = selectedTrainSectors.filter(s => s !== sector);
+    } else {
+        element.dataset.selected = 'true';
+        element.style.background = 'rgba(77, 163, 255, 0.2)';
+        selectedTrainSectors.push(sector);
+    }
+}
+
+// 全选
+function selectAllTrainSectors() {
+    document.querySelectorAll('.train-sector-item:not([style*="display: none"])').forEach(item => {
+        item.dataset.selected = 'true';
+        item.style.background = 'rgba(77, 163, 255, 0.2)';
+    });
+    selectedTrainSectors = Array.from(document.querySelectorAll('.train-sector-item:not([style*="display: none"])')).map(item => item.textContent.trim());
+}
+
+// 清空
+function clearAllTrainSectors() {
+    document.querySelectorAll('.train-sector-item').forEach(item => {
+        item.dataset.selected = 'false';
+        item.style.background = 'transparent';
+    });
+    selectedTrainSectors = [];
+}
+
+// 确认选择并收起
+function confirmTrainSectorSelection() {
+    updateTrainSelectedText();
+    const menu = document.getElementById('trainSectorDropdownMenu');
+    const icon = document.getElementById('trainSectorDropdownIcon');
+    menu.style.display = 'none';
+    icon.className = 'fas fa-chevron-down';
+}
+
+// 更新选中板块显示
+function updateTrainSelectedText() {
+    const text = document.getElementById('trainSelectedSectorsText');
+    if (selectedTrainSectors.length === 0) {
+        text.textContent = '请选择板块';
+    } else if (selectedTrainSectors.length <= 3) {
+        text.textContent = selectedTrainSectors.join(', ');
+    } else {
+        text.textContent = `已选择 ${selectedTrainSectors.length} 个板块`;
+    }
+}
+
+function getSelectedSectors() {
+    return selectedTrainSectors;
+}
+
+function trainSelectedSectors() {
+    // 检查是否已有训练正在进行
+    if (isTrainingInProgress) {
+        console.log('训练正在进行中，忽略重复请求');
+        return;
+    }
+    
+    const sectors = getSelectedSectors();
+    if (sectors.length === 0) {
+        alert('请至少选择一个板块');
+        return;
+    }
+    
+    // 设置训练中标记
+    isTrainingInProgress = true;
+    
+    // 保存任务状态
+    saveTrainingTaskStatus(sectors, 'running');
+    
+    const params = getTrainingParams();
+    startTraining(`正在训练 ${sectors.length} 个板块...`, `使用 ${params.data.history_days} 天历史数据`);
+    
+    fetch('/api/train/multi', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sectors, params})
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearTrainingTaskStatus(); // 清除任务状态
+        isTrainingInProgress = false; // 重置训练标记
+        
+        if (data.success) {
+            let resultHtml = `
+                <div class="alert alert-success" style="font-size: 1.1rem;">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong style="color: #5dd879;">训练完成！</strong> 成功训练 ${data.success_count} 个板块
+                </div>
+                <div class="mt-3">
+                    <h6 style="color: #fff; font-size: 1.15rem; margin-bottom: 1rem; font-weight: 600;">各板块训练结果:</h6>
+                    <div class="table-responsive">
+                            <table class="table table-sm table-dark result-table" style="background: rgba(15, 15, 25, 0.95);">
+                            <thead>
+                                <tr>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">板块</th>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">状态</th>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">分类准确率</th>
+                                    <th style="background: rgba(10, 10, 20, 0.98); color: #4da3ff; font-size: 1rem;">回归R²</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            for (const [sector, result] of Object.entries(data.results)) {
+                const hasError = result.error;
+                const classifierMetrics = result.classifier && result.classifier.metrics;
+                const regressorMetrics = result.regressor && result.regressor.metrics;
+                resultHtml += `
+                    <tr style="background: rgba(20, 20, 35, 0.9);">
+                        <td style="color: #fff; font-weight: 700; font-size: 1rem;">${sector}</td>
+                        <td><span class="badge ${hasError ? 'badge-soft-danger' : 'badge-soft-success'}" style="font-size: 0.9rem;">${hasError ? '失败' : '完成'}</span></td>
+                        <td style="color: #4da3ff; font-weight: 700; font-size: 1rem;">${!hasError && classifierMetrics ? (classifierMetrics.accuracy * 100).toFixed(1) + '%' : '--'}</td>
+                        <td style="color: #5dd879; font-weight: 700; font-size: 1rem;">${!hasError && regressorMetrics ? regressorMetrics.r2.toFixed(3) : '--'}</td>
+                    </tr>
+                `;
+            }
+            
+            resultHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            showResult(resultHtml);
+        } else {
+            showResult(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    训练失败: ${data.error}
+                </div>
+            `);
+        }
+    })
+    .catch(error => {
+        clearTrainingTaskStatus(); // 清除任务状态
+        isTrainingInProgress = false; // 重置训练标记
+        showResult(`
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                网络错误: ${error.message}
+            </div>
+        `);
+    });
+}
+
+function startTraining(status, detail) {
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('trainStatus').textContent = status;
+    document.getElementById('trainDetail').textContent = detail;
+    document.getElementById('trainProgress').style.width = '50%';
+    document.getElementById('trainSpinner').style.display = 'inline-block';
+}
+
+function showResult(html) {
+    document.getElementById('trainProgress').style.width = '100%';
+    document.getElementById('trainSpinner').style.display = 'none';
+    document.getElementById('trainStatus').textContent = '训练完成';
+    document.getElementById('trainDetail').textContent = '';
+    
+    document.getElementById('resultSection').style.display = 'block';
+    document.getElementById('resultContent').innerHTML = html;
+}
+
+// 页面加载时检查并恢复任务状态
+document.addEventListener('DOMContentLoaded', function() {
+    checkAndRestoreTrainingTask();
+});
+</script>
+{% endblock %}

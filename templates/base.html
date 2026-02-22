@@ -1,0 +1,1151 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FinSectorForecast{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #4da3ff;
+            --secondary-color: #5dd879;
+            --danger-color: #ff6b6b;
+            --warning-color: #ffd43b;
+            --dark-bg: #1a1a2e;
+            --card-bg: #252542;
+            --text-primary: #ffffff;
+            --text-secondary: #f0f0f0;
+            --text-muted: #c0c0c0;
+            --gray-color: #808080; /* 灰色 */
+        /* 中国股市颜色：红涨绿跌 */
+        --up-color: #ff4d4f;
+        --down-color: #52c41a;
+        /* 交易信号颜色 */
+        --signal-buy-color: #52c41a; /* 买入信号绿色 */
+        --signal-strong-buy-color: #2d8a47; /* 强烈买入信号深绿色 */
+        --signal-sell-color: #ff4d4f; /* 卖出信号红色 */
+        --signal-strong-sell-color: #c62828; /* 强烈卖出信号深红色 */
+        --signal-hold-color: #ffd43b; /* 持有信号黄色 */
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            height: 100%;
+        }
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
+            min-height: 100%;
+            height: 100%;
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 导航栏样式 */
+        .navbar {
+            background: rgba(39, 41, 61, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 1rem 0;
+            z-index: 9999;
+        }
+        
+        /* 导航栏按钮样式 */
+        .navbar .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        
+        /* 导航栏按钮hover效果 */
+        .navbar .btn.nav-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 导航栏按钮点击效果 */
+        .navbar .btn.nav-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 导航栏按钮禁用状态 */
+        .navbar .btn.nav-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* 清除缓存按钮特定颜色调整 */
+        .navbar .btn.btn-warning {
+            background-color: #f59e0b;
+            border-color: #f59e0b;
+            color: #fff;
+        }
+        
+        .navbar .btn.btn-warning:hover {
+            background-color: #d97706;
+            border-color: #d97706;
+        }
+        
+        /* 确保tooltip显示在导航栏上方 */
+        .navbar .tooltip {
+            z-index: 10000;
+        }
+        
+        /* 后台任务状态指示器样式 */
+        .task-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .task-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ffd43b;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .task-status-dot.running {
+            background: #4da3ff;
+            animation: pulse 1s infinite;
+        }
+        
+        .task-status-dot.completed {
+            background: #52c41a;
+            animation: none;
+        }
+        
+        .task-status-dot.failed {
+            background: #ff4d4f;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(1.2);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary-color) !important;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .navbar-nav .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin: 0 5px;
+        }
+        
+        .navbar-nav .nav-link:hover,
+        .navbar-nav .nav-link.active {
+            color: var(--text-primary) !important;
+            background: rgba(26, 115, 232, 0.2);
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid rgba(20, 230, 135, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+        
+        /* 包含下拉菜单的卡片需要更高的层级 */
+        .card.has-dropdown {
+            z-index: 1000;
+        }
+        
+        /* 下拉菜单始终在最上层 */
+        .dropdown-menu {
+            z-index: 10000 !important;
+        }
+        
+        .dropdown {
+            position: relative;
+        }
+        
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary) !important;
+        }
+        
+        .card-header h6,
+        .card-header .h6 {
+            color: var(--text-primary) !important;
+        }
+        
+        .card-body {
+            padding: 1.25rem;
+        }
+        
+        /* 按钮样式 */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #1557b0);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1557b0, #0d47a1);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(26, 115, 232, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, var(--secondary-color), #2d8a47);
+            border: none;
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, #2d8a47, #1e7e34);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning-color), #e6ac00);
+            border: none;
+            color: #333;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color), #c62828);
+            border: none;
+        }
+        
+        /* 表格样式 */
+        .table {
+            color: var(--text-primary);
+        }
+        
+        .table thead th {
+            background: rgba(26, 115, 232, 0.1);
+            border-bottom: 2px solid var(--primary-color);
+            padding: 0.6rem 0.75rem;
+            font-weight: 600;
+        }
+        
+        .table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            vertical-align: middle;
+        }
+        
+        .table tbody tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        /* 首页排名表格容器 - 优化10条数据显示 */
+        #rankingTableContainer {
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        
+        #rankingTableContainer table {
+            margin-bottom: 0;
+        }
+        
+        #rankingTableContainer tbody tr {
+            height: 38px;
+        }
+        
+        /* 搜索输入框样式 */
+        .dropdown-menu .form-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+        
+        .dropdown-menu .form-control::placeholder {
+            color: var(--text-muted);
+        }
+        
+        .dropdown-menu .form-control:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(77, 163, 255, 0.25);
+            color: var(--text-primary);
+        }
+        
+        /* 交易信号样式 */
+        .badge-soft-success {
+            background-color: rgba(82, 196, 26, 0.2);
+            color: var(--signal-buy-color);
+        }
+        
+        .badge-soft-danger {
+            background-color: rgba(255, 77, 79, 0.2);
+            color: var(--signal-sell-color);
+        }
+        
+        .badge-soft-warning {
+            background-color: rgba(255, 212, 59, 0.2);
+            color: var(--signal-hold-color);
+        }
+        
+        /* 徽章样式 */
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .badge-soft-success {
+            background: rgba(52, 168, 83, 0.2);
+            color: var(--secondary-color);
+        }
+        
+        .badge-soft-danger {
+            background: rgba(234, 67, 53, 0.2);
+            color: var(--danger-color);
+        }
+        
+        .badge-soft-warning {
+            background: rgba(251, 188, 4, 0.2);
+            color: var(--warning-color);
+        }
+        
+        .badge-soft-primary {
+            background: rgba(26, 115, 232, 0.2);
+            color: var(--primary-color);
+        }
+        
+        /* 加载动画 */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 预测概率指示器 */
+        .probability-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .probability-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .probability-high {
+            background: linear-gradient(90deg, var(--up-color), #ff4d4f);
+        }
+        
+        .probability-medium {
+            background: linear-gradient(90deg, var(--down-color), #52c41a);
+        }
+        
+        .probability-low {
+            background: linear-gradient(90deg, #808080, #a0a0a0);
+        }
+        
+        /* 信号灯样式 */
+        .signal-light {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        .signal-buy {
+            background: var(--secondary-color);
+            box-shadow: 0 0 10px var(--secondary-color);
+        }
+        
+        .signal-sell {
+            background: var(--danger-color);
+            box-shadow: 0 0 10px var(--danger-color);
+        }
+        
+        .signal-hold {
+            background: var(--warning-color);
+            box-shadow: 0 0 10px var(--warning-color);
+        }
+        
+        .signal-strong-buy {
+            background: var(--signal-strong-buy-color);
+            box-shadow: 0 0 10px var(--signal-strong-buy-color);
+        }
+        
+        .signal-strong-sell {
+            background: var(--signal-strong-sell-color);
+            box-shadow: 0 0 10px var(--signal-strong-sell-color);
+        }
+        
+        /* 指标卡片 */
+        .metric-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .metric-positive {
+            color: var(--up-color);
+        }
+        
+        .metric-negative {
+            color: var(--down-color);
+        }
+        
+        /* 涨跌颜色类 */
+        .text-up {
+            color: var(--up-color) !important;
+        }
+        
+        .text-down {
+            color: var(--down-color) !important;
+        }
+        
+        .text-gray {
+            color: var(--gray-color) !important;
+        }
+        
+        /* 页脚固定在底部 */
+        main {
+            flex: 1 0 auto;
+            min-height: 0;
+        }
+        
+        .footer {
+            /* 原有核心属性保留 */
+            background: rgba(39, 41, 61, 0.95);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem 0;
+            margin-top: auto;
+            flex-shrink: 0;
+            position: relative;
+            width: 100%;
+            z-index: 0;
+
+            /* 新增美化属性 */
+            /* 1. 视觉质感优化 */
+            backdrop-filter: blur(8px); /* 毛玻璃效果，增强半透明层次感 */
+            -webkit-backdrop-filter: blur(8px); /* 兼容 Safari */
+            box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15); /* 底部阴影，区分内容区和页脚 */
+            
+            /* 2. 排版与内边距优化 */
+            padding: 2rem 5%; /* 上下内边距加大，左右用百分比适配不同屏幕 */
+            box-sizing: border-box; /* 确保 padding 不超出 100% 宽度 */
+            
+            /* 3. 过渡效果（若后续有交互需求） */
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .card {
+                margin-bottom: 1rem;
+            }
+            
+            .metric-value {
+                font-size: 1.25rem;
+            }
+        }
+        
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* 表单控件样式 */
+        .form-control, .form-select {
+            background-color: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-primary);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background-color: rgba(255,255,255,0.15);
+            border-color: var(--primary-color);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 0.25rem rgba(77, 163, 255, 0.25);
+        }
+        
+        .form-control::placeholder {
+            color: var(--text-muted);
+        }
+        
+        .form-label {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* 下拉菜单选项 */
+        .form-select option {
+            background-color: #252542;
+            color: var(--text-primary);
+        }
+        
+        /* 文字颜色增强 */
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        
+        /* 小标题增强 */
+        h6, .h6 {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        /* 列表项增强 */
+        ul li, ol li {
+            color: var(--text-secondary);
+        }
+        
+        /* 卡片内文字 */
+        .card-body p {
+            color: var(--text-secondary);
+        }
+        
+        /* 表格内文字增强 */
+        .table td, .table th {
+            color: var(--text-primary);
+        }
+        
+        /* 警告框文字 */
+        .alert {
+            color: var(--text-primary);
+        }
+        
+        /* 预测日期显示 */
+        .prediction-date {
+            background: linear-gradient(135deg, rgba(77, 163, 255, 0.2), rgba(93, 216, 121, 0.2));
+            border: 1px solid rgba(77, 163, 255, 0.3);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .prediction-date .date-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .prediction-date .date-value {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        
+        /* 投资建议文字样式 */
+        .recommendation-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        
+        /* 表格排名样式增强 */
+        .table tbody tr {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .table tbody tr:hover {
+            background: rgba(77, 163, 255, 0.15) !important;
+        }
+        
+        /* 涨跌幅概率排名表格增强 */
+        #rankingTable {
+            background: rgba(15, 15, 25, 0.98);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        #rankingTable thead th {
+            background: rgba(10, 10, 20, 0.99);
+            color: #4da3ff;
+            font-weight: 700;
+            font-size: 1rem;
+            border-bottom: 2px solid var(--primary-color);
+            position: relative;
+            z-index: 1;
+            padding: 1rem;
+        }
+        
+        #rankingTable tbody td {
+            color: #ffffff;
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.875rem 1rem;
+        }
+        
+        #rankingTable tbody tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        #rankingTable tbody tr:nth-child(odd) {
+            background: rgba(20, 20, 35, 0.95);
+        }
+        
+        #rankingTable tbody tr:nth-child(even) {
+            background: rgba(12, 12, 25, 0.98);
+        }
+        
+        #rankingTable tbody tr:hover {
+            background: rgba(77, 163, 255, 0.2) !important;
+        }
+        
+        /* 训练结果和预测结果文字增强 */
+        .alert-success {
+            background: rgba(52, 168, 83, 0.2) !important;
+            border-color: rgba(52, 168, 83, 0.4) !important;
+            color: #5dd879 !important;
+        }
+        
+        .alert-danger {
+            background: rgba(234, 67, 53, 0.2) !important;
+            border-color: rgba(234, 67, 53, 0.4) !important;
+            color: #ff6b6b !important;
+        }
+        
+        .alert-warning {
+            background: rgba(251, 188, 4, 0.2) !important;
+            border-color: rgba(251, 188, 4, 0.4) !important;
+            color: #ffd43b !important;
+        }
+        
+        .alert-info {
+            background: rgba(77, 163, 255, 0.2) !important;
+            border-color: rgba(77, 163, 255, 0.4) !important;
+            color: #4da3ff !important;
+        }
+        
+        /* 表格结果文字增强 */
+        .table tbody td {
+            color: #e0e0e0 !important;
+        }
+        
+        .table thead th {
+            color: var(--primary-color) !important;
+        }
+        
+        /* 预测结果数值增强 */
+        .display-4, .h4, .h5 {
+            color: #fff !important;
+        }
+        
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+        
+        /* 卡片标题增强 */
+        .card-header {
+            color: #fff !important;
+            font-weight: 600;
+        }
+        
+        /* 结果表格增强 */
+        .table-sm td, .table-sm th {
+            color: #e0e0e0 !important;
+            padding: 0.75rem;
+        }
+        
+        .table-sm thead th {
+            background: rgba(77, 163, 255, 0.15);
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        /* 通用结果表格深色背景 */
+        .result-table {
+            background: rgba(15, 15, 25, 0.95) !important;
+        }
+        
+        .result-table thead th {
+            background: rgba(10, 10, 20, 0.98) !important;
+            color: #4da3ff !important;
+            border-bottom: 2px solid #4da3ff;
+        }
+        
+        .result-table tbody tr {
+            background: rgba(20, 20, 35, 0.9) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .result-table tbody tr:nth-child(even) {
+            background: rgba(12, 12, 25, 0.95) !important;
+        }
+        
+        .result-table tbody td {
+            color: #ffffff !important;
+        }
+        
+        /* 预测结果汇总表格深色背景 */
+        #predictionTable {
+            background: rgba(15, 15, 25, 0.95) !important;
+        }
+        
+        #predictionTable thead th {
+            background: rgba(10, 10, 20, 0.98) !important;
+            color: #4da3ff !important;
+            border-bottom: 2px solid #4da3ff;
+        }
+        
+        #predictionTable tbody tr {
+            background: rgba(20, 20, 35, 0.9) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        #predictionTable tbody tr:nth-child(even) {
+            background: rgba(12, 12, 25, 0.95) !important;
+        }
+        
+        #predictionTable tbody td {
+            color: #ffffff !important;
+        }
+        
+        /* 详细技术指标表格深色背景 */
+        #detailBody .table {
+            background: rgba(15, 15, 25, 0.95) !important;
+        }
+        
+        #detailBody .table td {
+            color: #e0e0e0 !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        /* 排名徽章样式 */
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        
+        .rank-1 { background: linear-gradient(135deg, #ffd700, #ffb300); color: #000; }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c0, #a0a0a0); color: #000; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f32, #b87333); color: #fff; }
+        .rank-other { background: rgba(77, 163, 255, 0.3); color: var(--primary-color); }
+        
+        /* 排序表头样式 */
+        .sort-header {
+            display: inline-block;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+        
+        .sort-header:hover {
+            background: rgba(77, 163, 255, 0.2);
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line"></i>
+                FinSectorForecast            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
+                            <i class="fas fa-home me-1"></i> 首页
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/predict' %}active{% endif %}" href="/predict">
+                            <i class="fas fa-chart-pie me-1"></i> 预测分析
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/training' %}active{% endif %}" href="/training">
+                            <i class="fas fa-brain me-1"></i> 模型训练
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/analysis' %}active{% endif %}" href="/analysis">
+                            <i class="fas fa-search-dollar me-1"></i> 深度分析
+                        </a>
+                    </li>
+                </ul>
+                <!-- 导航栏右侧刷新按钮和帮助 -->
+                <div class="navbar-nav ms-auto d-flex align-items-center gap-2" id="navbarRefreshBtn">
+                    <!-- 帮助图标 -->
+                    <!-- <button class="btn btn-secondary btn-sm" 
+                            data-bs-toggle="popover" 
+                            data-bs-placement="bottom"
+                            data-bs-title="数据刷新说明"
+                            data-bs-content="<strong>触发条件：</strong><br>1. 首次打开页面时<br>2. 缓存数据过期后<br>3. 点击刷新数据按钮<br><br><strong>不触发条件：</strong><br>• 常规页面刷新<br>• 页面间导航切换<br><br<strong>缓存有效期：</strong><br>• 全板块预测: 6小时<br>• 多板块预测: 4小时<br>• 深度分析: 2小时"
+                            id="helpBtn">
+                        <i class="fas fa-question-circle"></i>
+                    </button> -->
+                    <!-- 后台任务状态指示器 -->
+                    <div id="taskStatusIndicator" class="task-status-indicator">
+                        <span class="task-status-dot"></span>
+                        <span class="task-status-text">初始化中...</span>
+                    </div>
+                    <!-- 刷新按钮 -->
+                    <button class="btn btn-primary btn-sm nav-btn" 
+                            onclick="refreshData()" 
+                            id="navRefreshBtn"
+                            data-bs-toggle="tooltip" 
+                            data-bs-placement="bottom">
+                        <i class="fas fa-sync-alt"></i> 刷新数据
+                    </button>
+                    <!-- 清除缓存按钮 -->
+                    <button class="btn btn-warning btn-sm nav-btn" 
+                            onclick="clearCache()" 
+                            id="navClearCacheBtn"
+                            data-bs-toggle="tooltip" 
+                            data-bs-placement="bottom">
+                        <i class="fas fa-trash-alt"></i> 清除缓存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主要内容 -->
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- 页脚 -->
+    <aside class="footer">
+        <div class="container text-center">
+            <p class="mb-2 text-muted">
+                <i class="fas fa-info-circle me-2"></i>
+                本系统仅供学习研究使用，不构成投资建议
+            </p>
+            <p class="mb-0 text-muted small">
+                © 2026 板块次日涨跌预测系统 | 股市有风险，投资需谨慎
+            </p>
+        </div>
+    </aside>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <!-- 清除缓存和刷新数据功能 -->
+    <script>
+        // ==================== 后台任务状态管理 ====================
+        
+        // 更新任务状态指示器
+        function updateTaskStatus(data) {
+            const indicator = document.getElementById('taskStatusIndicator');
+            if (!indicator) return;
+            
+            const dot = indicator.querySelector('.task-status-dot');
+            const text = indicator.querySelector('.task-status-text');
+            
+            if (!dot || !text) return;
+            
+            const summary = data.summary;
+            const currentTask = summary.current_task;
+            
+            if (currentTask) {
+                // 有正在运行的任务
+                const status = currentTask.status;
+                const progress = currentTask.progress || 0;
+                const message = currentTask.message || '处理中...';
+                const taskType = currentTask.task_type || '';
+                
+                // 更新状态样式
+                dot.className = 'task-status-dot running';
+                
+                // 根据任务类型显示不同信息
+                if (taskType === 'train_all') {
+                    text.textContent = `训练中 ${progress}%`;
+                } else if (taskType === 'predict_all') {
+                    text.textContent = `预测中 ${progress}%`;
+                } else {
+                    text.textContent = message;
+                }
+            } else {
+                // 没有运行中的任务，检查最近完成的任务
+                const recentCompleted = summary.recent_completed || [];
+                const latestTime = summary.latest_predictions_time;
+                
+                if (recentCompleted.length > 0) {
+                    const lastTask = recentCompleted[0];
+                    if (lastTask.status === 'completed') {
+                        dot.className = 'task-status-dot completed';
+                        
+                        // 显示最后更新时间
+                        if (latestTime) {
+                            const date = new Date(latestTime);
+                            const timeStr = date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+                            text.textContent = `已就绪 ${timeStr}`;
+                        } else {
+                            text.textContent = '已完成';
+                        }
+                    } else if (lastTask.status === 'failed') {
+                        dot.className = 'task-status-dot failed';
+                        text.textContent = '任务失败';
+                    } else {
+                        dot.className = 'task-status-dot';
+                        text.textContent = '等待中';
+                    }
+                } else {
+                    // 首次加载，显示初始化状态
+                    dot.className = 'task-status-dot';
+                    text.textContent = '初始化中...';
+                }
+            }
+        }
+        
+        // 获取后台任务状态
+        async function fetchTaskStatus() {
+            try {
+                const response = await fetch('/api/tasks/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateTaskStatus(data);
+                }
+            } catch (error) {
+                console.error('获取任务状态失败:', error);
+            }
+        }
+        
+        // 启动任务状态轮询
+        let taskStatusInterval = null;
+        function startTaskStatusPolling() {
+            // 立即获取一次状态
+            fetchTaskStatus();
+            
+            // 每5秒轮询一次
+            if (taskStatusInterval) {
+                clearInterval(taskStatusInterval);
+            }
+            taskStatusInterval = setInterval(fetchTaskStatus, 5000);
+        }
+        
+        // 页面加载完成后启动轮询
+        document.addEventListener('DOMContentLoaded', function() {
+            startTaskStatusPolling();
+        });
+        
+        // ==================== 缓存管理功能 ====================
+        
+        // 清除本地缓存
+        function clearLocalCache() {
+            const cacheKeys = [
+                'index_page_cache',
+                'predict_page_cache',
+                'training_page_cache',
+                'analysis_page_cache'
+            ];
+            cacheKeys.forEach(key => localStorage.removeItem(key));
+            sessionStorage.removeItem('hasVisitedIndex');
+            console.log('本地缓存已清除');
+        }
+        
+        // 清除服务端缓存
+        async function clearServerCache() {
+            try {
+                const response = await fetch('/api/cache/clear', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await response.json();
+                if (data.success) {
+                    console.log('服务端缓存已清除');
+                    return data;
+                } else {
+                    console.warn('清除服务端缓存失败:', data.error);
+                    return data;
+                }
+            } catch (error) {
+                console.error('清除服务端缓存请求失败:', error);
+                throw error;
+            }
+        }
+        
+        // 清除缓存（本地+服务端）
+        async function clearCache() {
+            // 清除本地缓存
+            clearLocalCache();
+            
+            // 尝试清除服务端缓存
+            try {
+                await clearServerCache();
+                alert('缓存清除完成！页面将刷新...');
+                // 刷新页面
+                location.reload();
+            } catch (error) {
+                alert('服务端缓存清除失败: ' + error.message);
+            }
+        }
+        
+        // 刷新数据（强制刷新，清除缓存）
+        async function refreshData() {
+            // 检测当前页面类型
+            const isIndexPage = document.getElementById('rankingBody') !== null;
+            const isPredictPage = document.getElementById('predictBody') !== null;
+            const isTrainingPage = document.getElementById('trainingLog') !== null;
+            const isAnalysisPage = document.getElementById('analysisBody') !== null;
+            
+            const btn = document.getElementById('navRefreshBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 刷新中...';
+            }
+            
+            try {
+                // 清除本地缓存
+                clearLocalCache();
+                
+                // 清除服务端缓存
+                await clearServerCache();
+                
+                // 根据页面类型执行刷新
+                if (isIndexPage && typeof window.refreshIndexData === 'function') {
+                    // 首页：调用首页特有的刷新函数
+                    await window.refreshIndexData();
+                } else {
+                    // 其他页面：直接刷新页面
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('刷新数据失败:', error);
+                alert('刷新数据失败: ' + error.message);
+                
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sync-alt"></i> 刷新数据';
+                }
+            }
+        }
+    </script>
+    
+    <!-- 初始化工具提示和弹出框 -->
+    <script>
+        // 初始化Bootstrap工具提示
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // 初始化Bootstrap弹出框
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl, {
+                    html: true,
+                    trigger: 'click'
+                });
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

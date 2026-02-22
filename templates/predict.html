@@ -1,0 +1,672 @@
+ {% extends "base.html" %}
+
+{% block title %}预测分析 - FinSectorForecast{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-chart-pie me-2 text-primary"></i>
+            预测分析
+        </h2>
+    </div>
+</div>
+
+<!-- 选择面板 -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card has-dropdown">
+            <div class="card-header">
+                <i class="fas fa-sliders-h me-2"></i>参数设置
+            </div>
+            <div class="card-body" style="position: relative; overflow: visible;">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label">选择板块（可多选）</label>
+                        <div class="dropdown" id="sectorDropdownContainer">
+                            <button class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" 
+                                    type="button" id="sectorDropdownBtn" onclick="toggleSectorDropdown()">
+                                <span id="selectedSectorsText">请选择板块</span>
+                                <i class="fas fa-chevron-down" id="sectorDropdownIcon"></i>
+                            </button>
+                            <div class="dropdown-menu w-100 p-3" id="sectorDropdownMenu" style="display: none; position: absolute; z-index: 9999; max-height: 400px; overflow-y: auto; top: 100%; left: 0;">
+                                <div class="mb-2">
+                                    <input type="text" class="form-control form-control-sm" id="sectorSearchInput" placeholder="搜索板块..." oninput="filterSectors(this.value)" style="color: black !important;">
+                                </div>
+                                <div class="mb-2 d-flex gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllSectors()">全选</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllSectors()">清空</button>
+                                    <button type="button" class="btn btn-sm btn-primary ms-auto" onclick="confirmSectorSelection()">确认</button>
+                                </div>
+                                <hr class="my-2">
+                                <div id="sectorCheckboxes">
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        <span class="ms-2 text-muted">正在加载板块列表...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <button class="btn btn-primary w-100 py-3" onclick="doPredict()">
+                            <i class="fas fa-rocket me-1"></i>开始预测
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 预测结果 -->
+<div class="row" id="resultSection" style="display: none;">
+    <!-- 预测日期显示 -->
+    <div class="col-12 mb-3">
+        <div class="prediction-date">
+            <span class="date-label">📊 预测目标日期：</span>
+            <span class="date-value" id="predictionTargetDate">--</span>
+            <span class="ms-3 date-label">（基于 <span id="predictionBaseDate">--</span> 数据）</span>
+        </div>
+    </div>
+    
+    <!-- 多板块预测结果表格 -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-table me-2"></i>预测结果汇总
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-dark" id="predictionTable">
+                        <thead>
+                            <tr>
+                                <th>板块名称</th>
+                                <th>准确率</th>
+                                <th>预测涨幅</th>
+                                <th>交易信号</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictionBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 单板块详细结果 -->
+<div class="row mt-4" id="detailSection" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-list-alt me-2"></i>详细技术指标（点击表格行查看）
+            </div>
+            <div class="card-body" id="detailBody">
+                <p class="text-muted text-center">点击上方表格中的行查看详细指标</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 加载状态 -->
+<div class="row" id="loadingSection">
+    <div class="col-12 text-center py-5">
+        <div class="loading-spinner" style="width: 50px; height: 50px;"></div>
+        <p class="mt-3 text-muted">请选择板块并点击预测</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPredictions = [];
+let selectedSectorsList = [];
+
+// 本地缓存键名
+const CACHE_KEY_PREDICT = 'predict_page_cache';
+
+// 任务状态缓存键名
+const TASK_KEY_PREDICT = 'predict_task_status';
+
+// 异步加载板块列表
+async function loadPredictSectors() {
+    const sectorListEl = document.getElementById('sectorCheckboxes');
+    if (!sectorListEl) return;
+    
+    try {
+        const response = await fetch('/api/sectors');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            sectorListEl.innerHTML = result.data.map(sector => 
+                `<div class="sector-item" data-sector="${sector}" onclick="toggleSectorItem(this, '${sector}')" style="cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-bottom: 2px; background: transparent;">
+                    ${sector}
+                </div>`
+            ).join('');
+        } else {
+            sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败</div>';
+        }
+    } catch (e) {
+        console.error('加载板块列表失败:', e);
+        sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败: ' + e.message + '</div>';
+    }
+}
+
+// 页面加载完成后异步加载板块列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadPredictSectors();
+});
+
+// 保存任务状态到本地存储
+function savePredictTaskStatus(sectors, status) {
+    try {
+        const taskData = {
+            taskType: 'predict',
+            sectors: sectors,
+            status: status,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(TASK_KEY_PREDICT, JSON.stringify(taskData));
+        console.log('预测任务状态已保存:', taskData);
+    } catch (e) {
+        console.error('保存预测任务状态失败:', e);
+    }
+}
+
+// 获取任务状态
+function getPredictTaskStatus() {
+    try {
+        const stored = localStorage.getItem(TASK_KEY_PREDICT);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {
+        console.error('获取预测任务状态失败:', e);
+    }
+    return null;
+}
+
+// 清除任务状态
+function clearPredictTaskStatus() {
+    try {
+        localStorage.removeItem(TASK_KEY_PREDICT);
+    } catch (e) {
+        console.error('清除预测任务状态失败:', e);
+    }
+}
+
+// 页面加载时检查并恢复任务状态
+function checkAndRestorePredictTask() {
+    const taskStatus = getPredictTaskStatus();
+    if (taskStatus && taskStatus.status === 'running' && taskStatus.sectors) {
+        const sectors = taskStatus.sectors;
+        console.log('检测到未完成的预测任务:', sectors);
+        
+        // 恢复选中的板块
+        selectedSectorsList = sectors.slice();
+        
+        // 更新UI显示
+        sectors.forEach(sector => {
+            const item = document.querySelector(`.sector-item[data-sector="${sector}"]`);
+            if (item) {
+                item.dataset.selected = 'true';
+                item.style.background = 'rgba(77, 163, 255, 0.2)';
+            }
+        });
+        updateSelectedText();
+        
+        // 显示加载状态
+        document.getElementById('loadingSection').style.display = 'block';
+        document.getElementById('loadingSection').innerHTML = `
+            <div class="col-12 text-center py-5">
+                <div class="loading-spinner" style="width: 50px; height: 50px;"></div>
+                <p class="mt-3 text-muted">正在预测 ${sectors.length} 个板块，请稍候...</p>
+            </div>
+        `;
+        document.getElementById('resultSection').style.display = 'none';
+        document.getElementById('detailSection').style.display = 'none';
+        
+        // 重新执行预测操作
+        doPredictRestore();
+    }
+}
+
+// 重新执行预测（恢复模式）
+function doPredictRestore(force_refresh = false) {
+    const selectedSectors = getSelectedSectors();
+    
+    if (selectedSectors.length === 0) {
+        return;
+    }
+    
+    fetch('/api/predict/multi', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sectors: selectedSectors, force_refresh: force_refresh})
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearPredictTaskStatus();
+        document.getElementById('loadingSection').style.display = 'none';
+        
+        if (data.success) {
+            currentPredictions = data.predictions;
+            displayPredictions(data.predictions);
+            // 保存到本地缓存
+            savePredictCache(data);
+            // 显示缓存状态
+            if (data.from_cache) {
+                console.log('数据来自服务端缓存');
+            }
+        } else {
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('loadingSection').innerHTML = `
+                <div class="col-12 text-center py-5 text-danger">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>${data.error || '预测失败'}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        clearPredictTaskStatus();
+        document.getElementById('loadingSection').style.display = 'block';
+        document.getElementById('loadingSection').innerHTML = `
+            <div class="col-12 text-center py-5 text-danger">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <p>网络错误: ${error.message}</p>
+            </div>
+        `;
+    });
+}
+
+// 保存预测结果到本地缓存（持久化缓存，不按日期清理）
+function savePredictCache(data) {
+    try {
+        const cacheData = {
+            timestamp: new Date().toISOString(),
+            predictions: data.predictions,
+            sectors: selectedSectorsList.slice()
+        };
+        localStorage.setItem(CACHE_KEY_PREDICT, JSON.stringify(cacheData));
+        console.log('预测结果已保存到本地缓存');
+    } catch (e) {
+        console.error('保存缓存失败:', e);
+    }
+}
+
+// 从本地缓存恢复预测结果（持久化恢复，不检查日期）
+function restorePredictCache() {
+    try {
+        const cached = localStorage.getItem(CACHE_KEY_PREDICT);
+        if (cached) {
+            const cacheData = JSON.parse(cached);
+            if (cacheData.predictions && cacheData.predictions.length > 0) {
+                return cacheData;
+            }
+        }
+    } catch (e) {
+        console.error('恢复缓存失败:', e);
+    }
+    return null;
+}
+
+// 清除预测缓存
+function clearPredictCache() {
+    try {
+        localStorage.removeItem(CACHE_KEY_PREDICT);
+        console.log('预测缓存已清除');
+    } catch (e) {
+        console.error('清除缓存失败:', e);
+    }
+}
+
+// 页面加载时尝试恢复缓存
+document.addEventListener('DOMContentLoaded', function() {
+    // 首先检查是否有未完成的任务
+    checkAndRestorePredictTask();
+    
+    // 然后尝试恢复缓存（只有在没有未完成任务时才恢复缓存）
+    const taskStatus = getPredictTaskStatus();
+    if (!taskStatus || taskStatus.status !== 'running') {
+        const cached = restorePredictCache();
+        if (cached) {
+            currentPredictions = cached.predictions;
+            displayPredictions(cached.predictions);
+            // 恢复选中的板块
+            if (cached.sectors && cached.sectors.length > 0) {
+                selectedSectorsList = cached.sectors;
+                // 更新UI显示
+                cached.sectors.forEach(sector => {
+                    const item = document.querySelector(`.sector-item[data-sector="${sector}"]`);
+                    if (item) {
+                        item.dataset.selected = 'true';
+                        item.style.background = 'rgba(77, 163, 255, 0.2)';
+                    }
+                });
+                updateSelectedText();
+            }
+            
+            // 隐藏加载状态
+            document.getElementById('loadingSection').style.display = 'none';
+            
+            // 显示缓存时间
+            const cacheTime = new Date(cached.timestamp);
+            console.log(`已恢复上次的预测结果（缓存时间: ${cacheTime.toLocaleString()}）`);
+        }
+    }
+});
+
+// 下拉框控制
+function toggleSectorDropdown() {
+    const menu = document.getElementById('sectorDropdownMenu');
+    const icon = document.getElementById('sectorDropdownIcon');
+    if (menu.style.display === 'none') {
+        menu.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+        // 清空搜索框
+        document.getElementById('sectorSearchInput').value = '';
+        filterSectors('');
+    } else {
+        menu.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+// 搜索过滤板块
+function filterSectors(keyword) {
+    const items = document.querySelectorAll('.sector-item');
+    const lowerKeyword = keyword.toLowerCase();
+    items.forEach(item => {
+        const sectorName = item.dataset.sector.toLowerCase();
+        if (sectorName.includes(lowerKeyword)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// 点击外部收起下拉框
+document.addEventListener('click', function(event) {
+    const container = document.getElementById('sectorDropdownContainer');
+    const menu = document.getElementById('sectorDropdownMenu');
+    const icon = document.getElementById('sectorDropdownIcon');
+    
+    if (container && !container.contains(event.target)) {
+        menu.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+});
+
+// 点击板块项切换选中状态
+function toggleSectorItem(element, sector) {
+    const isSelected = element.dataset.selected === 'true';
+    if (isSelected) {
+        element.dataset.selected = 'false';
+        element.style.background = 'transparent';
+        selectedSectorsList = selectedSectorsList.filter(s => s !== sector);
+    } else {
+        element.dataset.selected = 'true';
+        element.style.background = 'rgba(77, 163, 255, 0.2)';
+        selectedSectorsList.push(sector);
+    }
+}
+
+// 全选
+function selectAllSectors() {
+    document.querySelectorAll('.sector-item:not([style*="display: none"])').forEach(item => {
+        item.dataset.selected = 'true';
+        item.style.background = 'rgba(77, 163, 255, 0.2)';
+    });
+    selectedSectorsList = Array.from(document.querySelectorAll('.sector-item:not([style*="display: none"])')).map(item => item.textContent.trim());
+}
+
+// 清空
+function clearAllSectors() {
+    document.querySelectorAll('.sector-item').forEach(item => {
+        item.dataset.selected = 'false';
+        item.style.background = 'transparent';
+    });
+    selectedSectorsList = [];
+}
+
+// 确认选择并收起
+function confirmSectorSelection() {
+    updateSelectedText();
+    const menu = document.getElementById('sectorDropdownMenu');
+    const icon = document.getElementById('sectorDropdownIcon');
+    menu.style.display = 'none';
+    icon.className = 'fas fa-chevron-down';
+}
+
+// 更新选中板块显示
+function updateSelectedText() {
+    const text = document.getElementById('selectedSectorsText');
+    if (selectedSectorsList.length === 0) {
+        text.textContent = '请选择板块';
+    } else if (selectedSectorsList.length <= 3) {
+        text.textContent = selectedSectorsList.join(', ');
+    } else {
+        text.textContent = `已选择 ${selectedSectorsList.length} 个板块`;
+    }
+}
+
+function getSelectedSectors() {
+    return selectedSectorsList;
+}
+
+function doPredict(force_refresh = false) {
+    const selectedSectors = getSelectedSectors();
+    
+    if (selectedSectors.length === 0) {
+        alert('请至少选择一个板块');
+        return;
+    }
+    
+    // 保存任务状态
+    savePredictTaskStatus(selectedSectors, 'running');
+    
+    // 显示加载状态
+    document.getElementById('loadingSection').style.display = 'block';
+    document.getElementById('loadingSection').innerHTML = `
+        <div class="col-12 text-center py-5">
+            <div class="loading-spinner" style="width: 50px; height: 50px;"></div>
+            <p class="mt-3 text-muted">${force_refresh ? '正在重新预测' : '正在预测'} ${selectedSectors.length} 个板块，请稍候...</p>
+        </div>
+    `;
+    document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('detailSection').style.display = 'none';
+    
+    fetch('/api/predict/multi', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sectors: selectedSectors, force_refresh: force_refresh})
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearPredictTaskStatus(); // 清除任务状态
+        document.getElementById('loadingSection').style.display = 'none';
+        
+        if (data.success) {
+            currentPredictions = data.predictions;
+            displayPredictions(data.predictions);
+            // 保存到本地缓存
+            savePredictCache(data);
+            // 显示缓存状态
+            if (data.from_cache) {
+                console.log('数据来自服务端缓存');
+            }
+        } else {
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('loadingSection').innerHTML = `
+                <div class="col-12 text-center py-5 text-danger">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>${data.error || '预测失败'}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        clearPredictTaskStatus(); // 清除任务状态
+        document.getElementById('loadingSection').style.display = 'block';
+        document.getElementById('loadingSection').innerHTML = `
+            <div class="col-12 text-center py-5 text-danger">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <p>网络错误: ${error.message}</p>
+            </div>
+        `;
+    });
+}
+
+function displayPredictions(predictions) {
+    // 显示结果区域
+    document.getElementById('resultSection').style.display = 'block';
+    document.getElementById('detailSection').style.display = 'block';
+    
+    // 显示预测日期
+    if (predictions && predictions.length > 0) {
+        if (predictions[0].prediction_date) {
+            document.getElementById('predictionTargetDate').textContent = predictions[0].prediction_date;
+        }
+        if (predictions[0].base_date) {
+            document.getElementById('predictionBaseDate').textContent = predictions[0].base_date;
+        }
+    }
+    
+    // 渲染表格
+    const tbody = document.getElementById('predictionBody');
+    tbody.innerHTML = predictions.map((pred, index) => {
+        // 进度条颜色：预测涨幅为正显示红色，为负显示绿色，0显示灰色
+        const probClass = pred.predicted_return > 0 ? 'probability-high' : 
+                         pred.predicted_return < 0 ? 'probability-medium' : 'probability-low';
+        
+        // 交易信号颜色
+        let signalClass, signalBadge;
+        switch(pred.signal) {
+            case '买入':
+                signalClass = 'signal-buy';
+                signalBadge = 'badge-soft-success';
+                break;
+            case '强烈买入':
+                signalClass = 'signal-strong-buy';
+                signalBadge = 'badge-soft-success';
+                break;
+            case '卖出':
+                signalClass = 'signal-sell';
+                signalBadge = 'badge-soft-danger';
+                break;
+            case '强烈卖出':
+                signalClass = 'signal-strong-sell';
+                signalBadge = 'badge-soft-danger';
+                break;
+            case '观望':
+                signalClass = 'signal-hold';
+                signalBadge = 'badge-soft-warning';
+                break;
+            default:
+                signalClass = 'signal-hold';
+                signalBadge = 'badge-soft-warning';
+        }
+        
+        // 涨跌幅颜色：正为红色，负为绿色，0为灰色
+        let returnClass;
+        if (pred.predicted_return > 0) {
+            returnClass = 'text-up';
+        } else if (pred.predicted_return < 0) {
+            returnClass = 'text-down';
+        } else {
+            returnClass = 'text-gray';
+        }
+        
+        return `
+            <tr onclick="showDetail(${index})" style="cursor: pointer;">
+                <td style="color: #fff; font-weight: 700; font-size: 1rem;">${pred.sector_name}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2" style="color: #4da3ff; font-weight: 700; width: 50px; display: inline-block; text-align: right;">${((pred.probability ?? 0) * 100).toFixed(1)}%</span>
+                        <div class="probability-bar flex-grow-1">
+                            <div class="probability-fill ${probClass}" style="width: ${pred.probability * 100}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="${returnClass}" style="font-weight: 700; font-size: 1.05rem;">
+                    ${(pred.predicted_return ?? 0) >= 0 ? '+' : ''}${(pred.predicted_return ?? 0).toFixed(2)}%
+                </td>
+                <td>
+                    <span class="badge ${signalBadge}" style="font-size: 0.9rem;">
+                        <span class="signal-light ${signalClass}"></span>
+                        ${pred.signal}
+                    </span>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 格式化资金流向（以万为单位，保留2位小数）
+function formatFundFlow(value) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return '0.00万';
+    }
+    const wan = value / 10000;
+    const sign = wan >= 0 ? '+' : '';
+    return sign + wan.toFixed(2) + '万';
+}
+
+function showDetail(index) {
+    const pred = currentPredictions[index];
+    if (!pred || !pred.features) {
+        document.getElementById('detailBody').innerHTML = `
+            <p class="text-muted text-center">暂无详细数据</p>
+        `;
+        return;
+    }
+    
+    const features = pred.features;
+    document.getElementById('detailBody').innerHTML = `
+        <h5 class="mb-3" style="color: #fff;">${pred.sector_name} - 技术指标详情</h5>
+         <div class="row">
+            <div class="col-md-3">
+                <h6 class="text-primary" style="font-size: 1rem; margin-bottom: 0.75rem;">价格特征</h6>
+                <table class="table table-sm table-dark">
+                    <tr><td style="color: #b0b0b0;">当日涨跌</td><td style="color: #4da3ff; font-weight: 600;">${((features.change_pct ?? 0)).toFixed(2)}%</td></tr>
+                    <tr><td style="color: #b0b0b0;">5日涨跌</td><td style="color: #4da3ff; font-weight: 600;">${((features.return_5d ?? 0)).toFixed(2)}%</td></tr>
+                    <tr><td style="color: #b0b0b0;">10日涨跌</td><td style="color: #4da3ff; font-weight: 600;">${((features.return_10d ?? 0)).toFixed(2)}%</td></tr>
+                    <tr><td style="color: #b0b0b0;">20日涨跌</td><td style="color: #4da3ff; font-weight: 600;">${((features.return_20d ?? 0)).toFixed(2)}%</td></tr>
+                </table>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-success" style="font-size: 1rem; margin-bottom: 0.75rem;">资金特征</h6>
+                <table class="table table-sm table-dark">
+                    <tr><td style="color: #b0b0b0;">资金净流入</td><td style="color: #5dd879; font-weight: 600;">${formatFundFlow(features.net_inflow)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">流入率</td><td style="color: #5dd879; font-weight: 600;">${((features.net_inflow_rate ?? 0)).toFixed(2)}%</td></tr>
+                    <tr><td style="color: #b0b0b0;">5日累计</td><td style="color: #5dd879; font-weight: 600;">${formatFundFlow(features.net_inflow_5d)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">10日累计</td><td style="color: #5dd879; font-weight: 600;">${formatFundFlow(features.net_inflow_10d)}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-warning" style="color: #ffd43b !important; font-size: 1rem; margin-bottom: 0.75rem;">动量特征</h6>
+                <table class="table table-sm table-dark">
+                    <tr><td style="color: #b0b0b0;">RSI(6)</td><td style="color: #ffd43b; font-weight: 600;">${((features.rsi_6 ?? 0)).toFixed(2)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">RSI(12)</td><td style="color: #ffd43b; font-weight: 600;">${((features.rsi_12 ?? 0)).toFixed(2)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">RSI(14)</td><td style="color: #ffd43b; font-weight: 600;">${((features.rsi_14 ?? 0)).toFixed(2)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">MACD</td><td style="color: #ffd43b; font-weight: 600;">${((features.macd ?? 0)).toFixed(4)}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-info" style="font-size: 1rem; margin-bottom: 0.75rem;">成交量特征</h6>
+                <table class="table table-sm table-dark">
+                    <tr><td style="color: #b0b0b0;">成交量变化</td><td style="color: #17a2b8; font-weight: 600;">${((features.volume_change_rate ?? 0)).toFixed(2)}%</td></tr>
+                    <tr><td style="color: #b0b0b0;">5日均量</td><td style="color: #17a2b8; font-weight: 600;">${((features.volume_ma5 ?? 0)).toFixed(0)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">20日均量</td><td style="color: #17a2b8; font-weight: 600;">${((features.volume_ma20 ?? 0)).toFixed(0)}</td></tr>
+                    <tr><td style="color: #b0b0b0;">量价配合</td><td style="color: #17a2b8; font-weight: 600;">${((features.price_volume_match ?? 0)).toFixed(2)}</td></tr>
+                </table>
+            </div>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

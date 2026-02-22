@@ -1,0 +1,1711 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - FinSectorForecast{% endblock %}
+
+{% block extra_head %}
+<style>
+/* 仪表盘容器 */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 120px);
+    padding-bottom: 50px;
+}
+
+/* 概览区域样式 */
+.overview-section .card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.02) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.overview-section .card-body {
+    padding: 2rem;
+}
+
+.overview-section .display-4 {
+    color: #4da3ff;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.overview-section .lead {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.overview-section .card.border-primary {
+    background: linear-gradient(145deg, rgba(77, 163, 255, 0.2) 0%, rgba(77, 163, 255, 0.1) 50%, rgba(77, 163, 255, 0.05) 100%);
+    border-color: rgba(77, 163, 255, 0.3);
+    border-radius: 16px;
+}
+
+.overview-section .card.border-primary .card-header {
+    background: rgba(77, 163, 255, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px 16px 0 0;
+}
+
+.overview-section .card.border-primary .card-body {
+    padding: 1.5rem;
+}
+
+.overview-section .card.border-primary .card-body .d-flex {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.overview-section .card.border-primary .card-body .d-flex:last-child {
+    border-bottom: none;
+}
+
+.overview-section .card.border-primary .card-body .font-weight-bold {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.overview-section .card.border-primary .card-body .text-muted {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.overview-section .rounded-circle {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.overview-section .bg-primary {
+    background: #4da3ff !important;
+}
+
+.overview-section .bg-success {
+    background: #10b981 !important;
+}
+
+.overview-section .text-success {
+    color: #10b981 !important;
+}
+
+.overview-section .text-danger {
+    color: #ef4444 !important;
+}
+
+.overview-section .row.g-3 {
+    margin-top: 1.5rem;
+}
+
+.overview-section .row.g-3 > div {
+    display: flex;
+    align-items: center;
+}
+
+.overview-section .row.g-3 h6 {
+    color: #fff;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.overview-section .row.g-3 p {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+/* 统计图表区域 */
+.stats-charts-container {
+    margin-bottom: 1.5rem;
+}
+
+.chart-card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.01) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 12px 48px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.15);
+    transform: translateY(-4px) scale(1.01);
+    border-color: rgba(255,255,255,0.15);
+}
+
+.chart-card .card-header {
+    background: rgba(77, 163, 255, 0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px 16px 0 0;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chart-card .card-title {
+    margin-bottom: 0;
+    color: #4da3ff;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chart-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.chart-control-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 0.25rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.chart-control-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.chart-control-btn.active {
+    background: #4da3ff;
+    border-color: #4da3ff;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin: 1rem 0;
+}
+
+/* 预测区域 */
+.prediction-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.prediction-section .card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.prediction-section .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 表格容器响应式高度 */
+#rankingTableContainer {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 240px);
+    min-height: 450px;
+}
+
+/* 响应式断点 */
+@media (max-width: 576px) {
+    .chart-container {
+        height: 250px;
+    }
+    #rankingTableContainer {
+        max-height: calc(100vh - 320px);
+        min-height: 300px;
+    }
+}
+
+@media (min-width: 993px) {
+    .chart-container {
+        height: 350px;
+    }
+    #rankingTableContainer {
+        max-height: calc(100vh - 220px);
+    }
+}
+
+@media (min-width: 1601px) {
+    .chart-container {
+        height: 400px;
+    }
+    #rankingTableContainer {
+        max-height: calc(100vh - 200px);
+    }
+}
+</style>
+
+<!-- 引入Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+
+<!-- 概览区域 -->
+<div class="overview-section mb-4">
+    <div class="card">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-4 mb-3">A股金融板块预测系统</h1>
+                    <p class="lead mb-4">
+                        基于机器学习算法的金融板块预测系统，提供次日涨跌幅准确率预测、交易信号分析和投资机会评估。
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle p-3 me-3">
+                                    <i class="fas fa-chart-line text-white"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">预测精度</h6>
+                                    <p class="text-muted mb-0">基于历史数据训练的模型</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-success rounded-circle p-3 me-3">
+                                    <i class="fas fa-rocket text-white"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">实时更新</h6>
+                                    <p class="text-muted mb-0">每日数据自动更新</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">关键指标</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted">预测板块数</span>
+                                <span class="font-weight-bold text-primary" id="totalSectors">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted">上涨预期</span>
+                                <span class="font-weight-bold text-success" id="positiveCount">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted">下跌预期</span>
+                                <span class="font-weight-bold text-danger" id="negativeCount">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted">平均涨跌幅</span>
+                                <span class="font-weight-bold" id="avgChange">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 板块排名 -->
+<div class="row prediction-section">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-list-ol me-2"></i>板块次日涨跌幅准确率预测
+                    <small class="text-muted ms-2" id="predictionUpdateTime"></small>
+                </span>
+                <button class="btn btn-sm btn-success" onclick="exportToCSV()" id="exportCSVBtn" title="导出CSV文件">
+                    <i class="fas fa-file-csv"></i> 导出CSV
+                </button>
+            </div>
+            <div class="card-body" id="predictionCardBody">
+                <div class="prediction-date" id="predictionDateInfo">
+                    <span class="date-label">预测目标日期：</span>
+                    <span class="date-value" id="targetDate">--</span>
+                </div>
+                <div class="table-responsive" id="rankingTableContainer">
+                    <table class="table table-hover table-dark" id="rankingTable">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>板块名称</th>
+                                <th>准确率</th>
+                                <th>涨跌幅</th>
+                                <th>交易信号</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <div class="loading-spinner"></div>
+                                    <p class="mt-2 text-muted">加载中...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最佳机会 -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-star me-2"></i>最佳投资机会
+                    <small class="text-muted ms-2" id="opportunitiesUpdateTime"></small>
+                </span>
+            </div>
+            <div class="card-body" id="opportunitiesBody">
+                <div class="text-center py-4">
+                    <div class="loading-spinner"></div>
+                    <p class="mt-2 text-muted">加载中...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 系统状态 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-server me-2"></i>系统状态
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-white">模型状态</span>
+                    <span class="badge badge-soft-success" id="modelStatus">--</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-white">数据更新</span>
+                    <span class="badge badge-soft-primary" id="lastUpdate">--:--</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-white">预测目标日期</span>
+                    <span class="badge badge-soft-info" id="targetDateBadge">--</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center" id="cacheExpiryRow" style="display: none;">
+                    <span class="text-white">缓存有效期</span>
+                    <span class="badge badge-soft-secondary" id="cacheExpiry">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div><!-- 关闭 dashboard-container -->
+
+<!-- 刷新加载模态框 -->
+<div class="modal fade" id="refreshModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: #1a1a2e; border: 1px solid #4da3ff;">
+            <div class="modal-header" style="border-bottom: 1px solid #333;">
+                <h5 class="modal-title text-white">
+                    <i class="fas fa-sync-alt fa-spin me-2"></i>数据刷新中
+                </h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="text-white mb-3" style="font-size: 1.1rem;">数据刷新耗时较长，请耐心等待</p>
+                <div class="progress mb-3" style="height: 25px; background: #333;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                         id="refreshProgressBar" 
+                         role="progressbar" 
+                         style="width: 0%;">
+                        <span id="refreshProgressText">0%</span>
+                    </div>
+                </div>
+                <p class="text-muted small mb-0" id="refreshStatusText">正在清除缓存...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPredictions = [];
+let mainChart = null;
+let signalChart = null;
+let currentChartType = 'overview';
+let currentTimeRange = '7d';
+
+// 初始化图表
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    // 首页加载时不自动获取数据，等待用户点击刷新按钮
+    // 数据加载由 refreshData() 函数处理
+});
+
+// 初始化图表
+function initializeCharts() {
+    const mainCtx = document.getElementById('mainChart').getContext('2d');
+    const signalCtx = document.getElementById('signalChart').getContext('2d');
+    
+    // 创建主图表
+    mainChart = new Chart(mainCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '涨跌幅',
+                data: [],
+                backgroundColor: 'rgba(77, 163, 255, 0.6)',
+                borderColor: 'rgba(77, 163, 255, 1)',
+                borderWidth: 1,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#fff',
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(77, 163, 255, 0.5)',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#b0b0b0',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)'
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: '#b0b0b0',
+                        font: {
+                            size: 11
+                        },
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)'
+                    }
+                }
+            }
+        }
+    });
+    
+    // 创建信号分布图表
+    signalChart = new Chart(signalCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    'rgba(16, 185, 129, 0.8)', // 绿色 - 买入
+                    'rgba(255, 77, 79, 0.8)', // 红色 - 卖出
+                    'rgba(255, 212, 59, 0.8)', // 黄色 - 观望
+                    'rgba(77, 163, 255, 0.8)', // 蓝色 - 强烈买入
+                    'rgba(239, 68, 68, 0.8)'  // 深红 - 强烈卖出
+                ],
+                borderColor: [
+                    'rgba(16, 185, 129, 1)',
+                    'rgba(255, 77, 79, 1)',
+                    'rgba(255, 212, 59, 1)',
+                    'rgba(77, 163, 255, 1)',
+                    'rgba(239, 68, 68, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        color: '#fff',
+                        font: {
+                            size: 10
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff'
+                }
+            },
+            cutout: '60%'
+        }
+    });
+}
+
+// 加载图表数据
+function loadChartData() {
+    console.log('正在调用接口:', `/api/statistics/charts?type=${currentChartType}&range=${currentTimeRange}`);
+    fetch(`/api/statistics/charts?type=${currentChartType}&range=${currentTimeRange}`)
+        .then(response => {
+            console.log('接口响应状态:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('接口返回数据:', data);
+            if (data.success) {
+                updateChart(data);
+                updateMetrics(data);
+                // 数据加载完成，启用页面交互
+                enablePageInteractions();
+            } else if (data.need_init) {
+                // 需要先初始化数据，调用 /api/predict/all
+                console.log('需要初始化数据，调用预测接口...');
+                fetch('/api/predict/all', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({force_refresh: true})
+                })
+                .then(response => response.json())
+                .then(predictData => {
+                    console.log('预测接口返回:', predictData);
+                    if (predictData.success) {
+                        // 预测成功，重新加载图表数据
+                        loadChartData();
+                    } else {
+                        console.error('初始化数据失败:', predictData.error);
+                        // 初始化失败时显示默认指标和提示
+                        showDefaultMetrics();
+                        showLoadError('预测初始化失败: ' + (predictData.error || '未知错误'));
+                        // 初始化失败也启用按钮
+                        enablePageInteractions();
+                    }
+                })
+                .catch(error => {
+                    console.error('初始化数据请求失败:', error);
+                    showDefaultMetrics();
+                    showLoadError('网络请求失败: ' + error.message);
+                    // 请求失败也启用按钮
+                    enablePageInteractions();
+                });
+            } else {
+                console.error('接口返回错误:', data.error);
+                showDefaultMetrics();
+                showLoadError(data.error || '数据加载失败');
+                // 接口返回错误也启用按钮
+                enablePageInteractions();
+            }
+        })
+        .catch(error => {
+            console.error('加载图表数据失败:', error);
+            showDefaultMetrics();
+            showLoadError('网络请求失败: ' + error.message);
+            // 请求失败也启用按钮
+            enablePageInteractions();
+        });
+}
+
+// 更新图表
+function updateChart(data) {
+    if (!mainChart) {
+        console.warn('mainChart 未初始化，跳过图表更新');
+        return;
+    }
+    
+    if (data.type === 'bar') {
+        mainChart.config.type = 'bar';
+        mainChart.data.labels = data.data.map(item => item.name);
+        mainChart.data.datasets[0].label = '涨跌幅';
+        mainChart.data.datasets[0].data = data.data.map(item => item.value);
+        mainChart.data.datasets[0].backgroundColor = data.data.map(item => 
+            item.value > 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(255, 77, 79, 0.6)'
+        );
+        mainChart.data.datasets[0].borderColor = data.data.map(item => 
+            item.value > 0 ? 'rgba(16, 185, 129, 1)' : 'rgba(255, 77, 79, 1)'
+        );
+    } else if (data.type === 'line') {
+        mainChart.config.type = 'line';
+        mainChart.data.labels = data.data.map(item => item.date);
+        mainChart.data.datasets[0].label = '收盘价';
+        mainChart.data.datasets[0].data = data.data.map(item => item.close);
+        mainChart.data.datasets[0].backgroundColor = 'rgba(77, 163, 255, 0.2)';
+        mainChart.data.datasets[0].borderColor = 'rgba(77, 163, 255, 1)';
+        mainChart.data.datasets[0].borderWidth = 2;
+        mainChart.data.datasets[0].fill = true;
+    }
+    
+    mainChart.update();
+}
+
+// 更新指标
+function updateMetrics(data) {
+    if (data.type === 'bar') {
+        const total = data.data ? data.data.length : 0;
+        
+        if (total === 0) {
+            // 数据为空，显示默认值
+            document.getElementById('totalSectors').textContent = '0';
+            document.getElementById('positiveCount').textContent = '0';
+            document.getElementById('negativeCount').textContent = '0';
+            document.getElementById('avgChange').textContent = '0.00%';
+            return;
+        }
+        
+        const positive = data.data.filter(item => item.value > 0).length;
+        const negative = data.data.filter(item => item.value < 0).length;
+        // 计算平均涨跌幅（加权平均，考虑概率）
+        const weightedSum = data.data.reduce((sum, item) => sum + (item.value * (item.probability || 0.5)), 0);
+        const totalProb = data.data.reduce((sum, item) => sum + (item.probability || 0.5), 0);
+        const avgChange = totalProb > 0 ? (weightedSum / totalProb).toFixed(2) : '0.00';
+        
+        document.getElementById('totalSectors').textContent = total;
+        document.getElementById('positiveCount').textContent = positive;
+        document.getElementById('negativeCount').textContent = negative;
+        
+        // 平均涨跌幅根据正负值显示不同颜色（红涨绿跌）
+        const avgChangeEl = document.getElementById('avgChange');
+        avgChangeEl.textContent = avgChange + '%';
+        avgChangeEl.className = 'font-weight-bold ' + (parseFloat(avgChange) >= 0 ? 'text-danger' : 'text-success');
+    }
+}
+
+// 显示默认指标（当数据初始化失败时）
+function showDefaultMetrics() {
+    document.getElementById('totalSectors').textContent = '--';
+    document.getElementById('positiveCount').textContent = '--';
+    document.getElementById('negativeCount').textContent = '--';
+    document.getElementById('avgChange').textContent = '--';
+}
+
+// 显示加载错误信息
+function showLoadError(message) {
+    const tbody = document.getElementById('rankingBody');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">${message}</td></tr>`;
+    }
+}
+
+// 加载信号分布数据
+function loadSignalDistribution() {
+    console.log('正在调用接口:', `/api/statistics/charts?type=signal_distribution&range=${currentTimeRange}`);
+    fetch(`/api/statistics/charts?type=signal_distribution&range=${currentTimeRange}`)
+        .then(response => {
+            console.log('接口响应状态:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('信号分布数据:', data);
+            if (data.success) {
+                if (!signalChart) {
+                    console.warn('signalChart 未初始化，跳过信号分布图更新');
+                    return;
+                }
+                signalChart.data.labels = data.data.map(item => item.name);
+                signalChart.data.datasets[0].data = data.data.map(item => item.value);
+                signalChart.update();
+            } else if (data.need_init) {
+                // 需要先初始化数据，信号分布图可以稍后加载
+                console.log('需要初始化数据，信号分布图将稍后加载...');
+            } else {
+                console.error('接口返回错误:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('加载信号分布数据失败:', error);
+        });
+}
+
+// 切换图表类型
+function changeChartType(type) {
+    currentChartType = type;
+    
+    // 更新按钮状态
+    document.querySelectorAll('.chart-control-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    if (type === 'overview') {
+        document.querySelector('.chart-control-btn').classList.add('active');
+    } else if (type === 'trend') {
+        document.querySelectorAll('.chart-control-btn')[1].classList.add('active');
+    } else if (type === 'signal_distribution') {
+        document.querySelectorAll('.chart-control-btn')[2].classList.add('active');
+    }
+    
+    loadChartData();
+}
+
+// 切换时间范围
+function changeTimeRange() {
+    currentTimeRange = document.getElementById('timeRange').value;
+    loadChartData();
+    loadSignalDistribution();
+}
+
+// 切换图表样式
+function changeChartStyle() {
+    const style = document.getElementById('chartType').value;
+    mainChart.config.type = style;
+    mainChart.update();
+}
+
+// 刷新图表
+function refreshChart() {
+    loadChartData();
+    loadSignalDistribution();
+}
+
+
+// 本地缓存键名
+const CACHE_KEY_INDEX = 'index_page_cache';
+
+// 响应式布局调整函数
+function adjustTableHeight() {
+    const container = document.getElementById('rankingTableContainer');
+    if (!container) return;
+    
+    const viewportHeight = window.innerHeight;
+    const isMobile = window.innerWidth < 768;
+    const isLargeScreen = window.innerWidth >= 1600;
+    
+    let maxHeight;
+    if (isMobile) {
+        maxHeight = viewportHeight - 320; // 移动端
+    } else if (isLargeScreen) {
+        maxHeight = viewportHeight - 260; // 大屏幕
+    } else {
+        maxHeight = viewportHeight - 240; // 标准屏幕
+    }
+    
+    // 确保最小高度
+    maxHeight = Math.max(maxHeight, 400);
+    container.style.maxHeight = maxHeight + 'px';
+}
+
+// 监听窗口大小变化
+window.addEventListener('resize', function() {
+    adjustTableHeight();
+});
+
+// 页面加载时调整
+document.addEventListener('DOMContentLoaded', function() {
+    adjustTableHeight();
+    
+    // 显示导航栏刷新按钮（仅首页显示）
+    const navRefreshBtn = document.getElementById('navRefreshBtn');
+    if (navRefreshBtn) {
+        navRefreshBtn.style.display = 'block';
+    }
+});
+
+// 导出数据为CSV文件
+function exportToCSV() {
+    if (!currentPredictions || currentPredictions.length === 0) {
+        alert('暂无数据可导出，请先获取预测数据');
+        return;
+    }
+    
+    // 获取预测目标日期
+    const targetDate = document.getElementById('targetDate').textContent || '未知日期';
+    
+    // CSV表头
+    const headers = ['排名', '板块名称', '准确率(%)', '预测涨跌幅(%)', '交易信号'];
+    
+    // CSV内容
+    let csvContent = '\uFEFF'; // BOM头，确保中文正确显示
+    csvContent += headers.join(',') + '\n';
+    
+    // 添加数据行
+    currentPredictions.forEach((pred, index) => {
+        const row = [
+            index + 1,
+            `"${pred.sector_name || ''}"`,
+            ((pred.probability ?? 0) * 100).toFixed(2),
+            (pred.predicted_return ?? 0).toFixed(2),
+            `"${pred.signal || ''}"`
+        ];
+        csvContent += row.join(',') + '\n';
+    });
+    
+    // 创建Blob并下载
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `板块预测结果_${targetDate.replace(/\//g, '-')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('数据已导出为CSV文件');
+}
+
+// 保存首页数据到本地缓存（持久化缓存，不按日期清理）
+function saveIndexCache(data) {
+    try {
+        const cacheData = {
+            timestamp: new Date().toISOString(),
+            predictions: data.predictions,
+            opportunities: data.opportunities
+        };
+        localStorage.setItem(CACHE_KEY_INDEX, JSON.stringify(cacheData));
+        console.log('首页数据已保存到本地缓存');
+    } catch (e) {
+        console.error('保存缓存失败:', e);
+    }
+}
+
+// 从本地缓存恢复首页数据（持久化恢复，不检查日期）
+function restoreIndexCache() {
+    try {
+        const cached = localStorage.getItem(CACHE_KEY_INDEX);
+        if (cached) {
+            const cacheData = JSON.parse(cached);
+            if (cacheData.predictions && cacheData.predictions.length > 0) {
+                return cacheData;
+            }
+        }
+    } catch (e) {
+        console.error('恢复缓存失败:', e);
+    }
+    return null;
+}
+
+// 清除本地缓存
+function clearLocalCache() {
+    try {
+        localStorage.removeItem(CACHE_KEY_INDEX);
+        console.log('首页缓存已清除');
+    } catch (e) {
+        console.error('清除本地缓存失败:', e);
+    }
+}
+
+// 清除服务端缓存
+async function clearServerCache() {
+    try {
+        const response = await fetch('/api/cache/clear', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cache_type: 'predict'})
+        });
+        return await response.json();
+    } catch (e) {
+        console.error('清除服务端缓存失败:', e);
+        return {success: false, error: e.message};
+    }
+}
+
+// 清除缓存（按钮点击调用）
+async function clearCache() {
+    const btn = document.getElementById('navClearCacheBtn');
+    const originalContent = btn ? btn.innerHTML : '';
+    
+    // 禁用按钮
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 清除中...';
+    }
+    
+    try {
+        // 清除本地缓存
+        clearLocalCache();
+        
+        // 清除服务端缓存
+        const result = await clearServerCache();
+        
+        // 恢复按钮
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+        
+        // 显示成功提示
+        if (result && result.success) {
+            alert('缓存已成功清除！');
+        } else {
+            alert('缓存清除完成（部分缓存可能清除失败）');
+        }
+        
+    } catch (e) {
+        console.error('清除缓存失败:', e);
+        // 恢复按钮
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+        alert('清除缓存失败: ' + e.message);
+    }
+}
+
+// 更新时间戳显示
+function updateTimestamps() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    document.getElementById('predictionUpdateTime').textContent = `更新于 ${timeStr}`;
+    document.getElementById('opportunitiesUpdateTime').textContent = `更新于 ${timeStr}`;
+}
+
+// 禁用页面交互元素
+function disablePageInteractions() {
+    // 禁用导航栏刷新按钮
+    const refreshBtn = document.getElementById('navRefreshBtn');
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.setAttribute('data-loading', 'true');
+        refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载中...';
+    }
+    
+    // 禁用导航栏所有按钮
+    const navButtons = document.querySelectorAll('.navbar .btn');
+    navButtons.forEach(btn => {
+        btn.disabled = true;
+    });
+    
+    // 禁用所有导航链接
+    const navLinks = document.querySelectorAll('.navbar .nav-link');
+    navLinks.forEach(link => {
+        link.style.pointerEvents = 'none';
+        link.style.opacity = '0.5';
+    });
+    
+    // 禁用页面内所有按钮（包括卡片内的按钮）
+    const pageButtons = document.querySelectorAll('.card .btn, main .btn, .btn');
+    pageButtons.forEach(btn => {
+        btn.disabled = true;
+    });
+    
+    // 禁用页面内的交互元素（如下拉菜单、标签页等）
+    const dropdowns = document.querySelectorAll('.dropdown-toggle');
+    dropdowns.forEach(toggle => {
+        toggle.style.pointerEvents = 'none';
+    });
+    
+    // 禁用所有链接（包括导航和页面内的链接）
+    const allLinks = document.querySelectorAll('a');
+    allLinks.forEach(link => {
+        link.style.pointerEvents = 'none';
+        link.style.opacity = '0.5';
+    });
+    
+    // 禁用所有带有onclick的元素
+    const clickableElements = document.querySelectorAll('[onclick]');
+    clickableElements.forEach(el => {
+        el.style.pointerEvents = 'none';
+    });
+    
+    // 禁用所有tab切换
+    const tabElements = document.querySelectorAll('[data-bs-toggle="tab"], [data-bs-toggle="pill"]');
+    tabElements.forEach(el => {
+        el.style.pointerEvents = 'none';
+    });
+}
+
+// 启用页面交互元素
+function enablePageInteractions() {
+    try {
+        // 启用导航栏刷新按钮
+        const refreshBtn = document.getElementById('navRefreshBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.removeAttribute('data-loading');
+            refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 刷新数据';
+        }
+        
+        // 启用导航栏所有按钮
+        const navButtons = document.querySelectorAll('.navbar .btn');
+        navButtons.forEach(btn => {
+            btn.disabled = false;
+        });
+        
+        // 启用所有导航链接
+        const navLinks = document.querySelectorAll('.navbar .nav-link');
+        navLinks.forEach(link => {
+            link.style.pointerEvents = 'auto';
+            link.style.opacity = '1';
+        });
+        
+        // 启用页面内所有按钮
+        const pageButtons = document.querySelectorAll('.card .btn, main .btn, .btn');
+        pageButtons.forEach(btn => {
+            btn.disabled = false;
+        });
+        
+        // 启用下拉菜单
+        const dropdowns = document.querySelectorAll('.dropdown-toggle');
+        dropdowns.forEach(toggle => {
+            toggle.style.pointerEvents = 'auto';
+        });
+        
+        // 启用所有链接
+        const allLinks = document.querySelectorAll('a');
+        allLinks.forEach(link => {
+            link.style.pointerEvents = 'auto';
+            link.style.opacity = '1';
+        });
+        
+        // 启用所有带有onclick的元素
+        const clickableElements = document.querySelectorAll('[onclick]');
+        clickableElements.forEach(el => {
+            el.style.pointerEvents = 'auto';
+        });
+        
+        // 启用所有tab切换
+        const tabElements = document.querySelectorAll('[data-bs-toggle="tab"], [data-bs-toggle="pill"]');
+        tabElements.forEach(el => {
+            el.style.pointerEvents = 'auto';
+        });
+        
+        console.log('页面交互已启用');
+    } catch (e) {
+        console.error('启用页面交互失败:', e);
+    }
+}
+
+// 加载排名数据（默认使用缓存，force_refresh=true时强制刷新）
+function loadRankingData(force_refresh = false) {
+    const tbody = document.getElementById('rankingBody');
+    const cardBody = document.getElementById('predictionCardBody');
+    
+    // 显示加载状态
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-4">
+                <div class="loading-spinner"></div>
+                <p class="mt-2 text-muted">${force_refresh ? '正在刷新...' : '正在加载...'}</p>
+            </td>
+        </tr>
+    `;
+    
+    fetch('/api/predict/all', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({force_refresh: force_refresh})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentPredictions = data.predictions;
+            renderRankingTable(data.predictions);
+            renderOpportunities(data.opportunities);
+
+            // 显示预测目标日期
+            if (data.predictions && data.predictions.length > 0 && data.predictions[0].prediction_date) {
+                const targetDateEl = document.getElementById('targetDate');
+                const targetDateBadgeEl = document.getElementById('targetDateBadge');
+                if (targetDateEl) targetDateEl.textContent = data.predictions[0].prediction_date;
+                if (targetDateBadgeEl) targetDateBadgeEl.textContent = data.predictions[0].prediction_date;
+            }
+            // 更新系统状态
+            const modelStatusEl = document.getElementById('modelStatus');
+            const sectorCountEl = document.getElementById('sectorCount');
+            const lastUpdateEl = document.getElementById('lastUpdate');
+            if (modelStatusEl) modelStatusEl.textContent = '已就绪';
+            if (sectorCountEl) sectorCountEl.textContent = data.total_sectors || data.predictions.length;
+            if (lastUpdateEl) lastUpdateEl.textContent = new Date().toLocaleTimeString();
+            
+            // 更新时间戳
+            updateTimestamps();
+            
+            // 保存到本地缓存
+            saveIndexCache(data);
+            
+            // 显示缓存状态
+            if (data.from_cache) {
+                document.getElementById('modelStatus').innerHTML = '已就绪 <small class="text-muted">(缓存)</small>';
+            }
+            
+            // 数据加载完成，启用页面交互
+            enablePageInteractions();
+        } else {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger py-4">
+                        <i class="fas fa-exclamation-triangle me-2"></i>${data.error || '加载失败'}
+                    </td>
+                </tr>
+            `;
+            // 加载失败也启用按钮
+            enablePageInteractions();
+        }
+    })
+    .catch(error => {
+        console.error('预测请求失败:', error);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>网络错误: ${error.message || '无法连接到服务器'}
+                </td>
+            </tr>
+        `;
+        // 请求失败也启用按钮
+        enablePageInteractions();
+    });
+}
+
+// 更新进度条
+function updateProgress(percent, text) {
+    const progressBar = document.getElementById('refreshProgressBar');
+    const progressText = document.getElementById('refreshProgressText');
+    const statusText = document.getElementById('refreshStatusText');
+    
+    if (progressBar && progressText && statusText) {
+        progressBar.style.width = percent + '%';
+        progressText.textContent = percent + '%';
+        statusText.textContent = text;
+    }
+}
+
+// 显示刷新模态框
+// message: 自定义初始消息（可选）
+function showRefreshModal(message = '正在初始化...') {
+    const modal = new bootstrap.Modal(document.getElementById('refreshModal'));
+    modal.show();
+    updateProgress(0, message);
+}
+
+// 隐藏刷新模态框
+function hideRefreshModal() {
+    const modalEl = document.getElementById('refreshModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+        modal.hide();
+    }
+    // 确保移除 backdrop
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) {
+        backdrop.remove();
+    }
+    // 恢复 body 的 overflow
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+}
+
+// 刷新数据（强制刷新，清除缓存）
+async function refreshData() {
+    const btn = document.getElementById('navRefreshBtn');
+    
+    // 如果按钮不存在，仍然继续执行刷新操作
+    const originalContent = btn ? btn.innerHTML : '';
+    
+    // 禁用页面所有交互元素
+    disablePageInteractions();
+    
+    // 显示模态加载框
+    showRefreshModal('正在刷新数据，请稍候...');
+    
+    try {
+        // 步骤1：清除本地缓存
+        updateProgress(10, '正在清除本地缓存...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        clearLocalCache();
+        
+        // 步骤2：清除服务端缓存
+        updateProgress(25, '正在清除服务端缓存...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await clearServerCache();
+        
+        // 步骤3：开始获取数据
+        updateProgress(40, '正在获取预测数据...');
+        
+        // 显示两个模块的加载状态
+        document.getElementById('rankingBody').innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4">
+                    <div class="loading-spinner"></div>
+                    <p class="mt-2 text-muted">正在刷新预测数据...</p>
+                </td>
+            </tr>
+        `;
+        document.getElementById('opportunitiesBody').innerHTML = `
+            <div class="text-center py-4">
+                <div class="loading-spinner"></div>
+                <p class="mt-2 text-muted">正在刷新投资机会...</p>
+            </div>
+        `;
+        
+        // 步骤4：发送请求
+        updateProgress(60, '正在计算预测结果...');
+        
+        const response = await fetch('/api/predict/all', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({force_refresh: true})
+        });
+        
+        updateProgress(80, '正在处理数据...');
+        const data = await response.json();
+        
+        if (data.success) {
+            currentPredictions = data.predictions;
+            renderRankingTable(data.predictions);
+            renderOpportunities(data.opportunities);
+
+            
+            // 显示预测目标日期
+            if (data.predictions && data.predictions.length > 0 && data.predictions[0].prediction_date) {
+                const targetDateEl = document.getElementById('targetDate');
+                const targetDateBadgeEl = document.getElementById('targetDateBadge');
+                if (targetDateEl) targetDateEl.textContent = data.predictions[0].prediction_date;
+                if (targetDateBadgeEl) targetDateBadgeEl.textContent = data.predictions[0].prediction_date;
+            }
+            
+            // 更新系统状态
+            const modelStatusEl = document.getElementById('modelStatus');
+            const sectorCountEl = document.getElementById('sectorCount');
+            const lastUpdateEl = document.getElementById('lastUpdate');
+            if (modelStatusEl) modelStatusEl.textContent = '已就绪';
+            if (sectorCountEl) sectorCountEl.textContent = data.total_sectors || data.predictions.length;
+            if (lastUpdateEl) lastUpdateEl.textContent = new Date().toLocaleTimeString();
+            
+            // 更新时间戳
+            updateTimestamps();
+            
+            // 保存到本地缓存
+            saveIndexCache(data);
+            
+            // 显示缓存有效期
+            const cacheExpiryRow = document.getElementById('cacheExpiryRow');
+            const cacheExpiryEl = document.getElementById('cacheExpiry');
+            if (cacheExpiryRow && cacheExpiryEl) {
+                // 如果有缓存有效期信息则显示
+                if (data.cache_expiry) {
+                    cacheExpiryRow.style.display = 'flex';
+                    cacheExpiryEl.textContent = data.cache_expiry;
+                    cacheExpiryEl.className = 'badge badge-soft-success';
+                } else if (data.from_cache) {
+                    // 如果使用缓存，显示缓存信息
+                    cacheExpiryRow.style.display = 'flex';
+                    cacheExpiryEl.textContent = '缓存数据';
+                    cacheExpiryEl.className = 'badge badge-soft-info';
+                } else {
+                    // 新生成的数据，设置默认缓存有效期显示
+                    cacheExpiryRow.style.display = 'flex';
+                    cacheExpiryEl.textContent = '新数据';
+                    cacheExpiryEl.className = 'badge badge-soft-success';
+                }
+            }
+            
+            updateProgress(100, '刷新完成！');
+            
+            // 延迟关闭模态框
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 加载图表数据和关键指标
+            loadChartData();
+        } else {
+            updateProgress(100, '刷新失败：' + (data.error || '未知错误'));
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            document.getElementById('rankingBody').innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger py-4">
+                        <i class="fas fa-exclamation-triangle me-2"></i>${data.error || '加载失败'}
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('预测请求失败:', error);
+        updateProgress(100, '网络错误：' + (error.message || '无法连接到服务器'));
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        document.getElementById('rankingBody').innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>网络错误: ${error.message || '无法连接到服务器'}
+                </td>
+            </tr>
+        `;
+    } finally {
+        // 隐藏模态框
+        hideRefreshModal();
+        
+        // 启用页面所有交互元素
+        enablePageInteractions();
+    }
+}
+
+// 将首页刷新函数导出为全局函数，供导航栏刷新按钮使用
+window.refreshIndexData = refreshData;
+
+// 页面加载时尝试恢复缓存，否则加载新数据
+// 刷新机制说明：
+// 1. 首次打开页面时：触发新的训练和预测
+// 2. 缓存数据过期时：自动触发重新训练和预测
+// 3. 用户点击刷新按钮时：触发重新训练和预测
+// 4. 常规页面刷新/导航：不触发重新训练，使用现有缓存
+document.addEventListener('DOMContentLoaded', async function() {
+    // 检查是否是首次访问（使用sessionStorage）
+    const isFirstVisit = !sessionStorage.getItem('hasVisitedIndex');
+    
+    // 获取缓存状态
+    let cacheStatus = null;
+    try {
+        const statusResponse = await fetch('/api/cache/status');
+        if (statusResponse.ok) {
+            cacheStatus = await statusResponse.json();
+        }
+    } catch (e) {
+        console.log('获取缓存状态失败:', e);
+    }
+    
+    const hasValidCache = cacheStatus && cacheStatus.success && 
+                          cacheStatus.has_cache && !cacheStatus.is_expired;
+    
+    // 记录首次访问
+    if (isFirstVisit) {
+        sessionStorage.setItem('hasVisitedIndex', 'true');
+    }
+    
+    // 尝试恢复本地缓存
+    const cached = restoreIndexCache();
+    
+    // 决策逻辑：
+    // 1. 首次访问 -> 强制刷新（触发训练和预测）
+    // 2. 有有效服务器缓存 -> 使用服务器缓存
+    // 3. 有本地缓存 -> 使用本地缓存
+    // 4. 都没有 -> 加载新数据
+    
+    if (isFirstVisit) {
+        // 首次访问，调用刷新数据函数（与点击刷新按钮一致）
+        console.log('首次访问页面，触发数据加载...');
+        refreshData();  // 使用与刷新按钮一致的等待画面（模态框）
+    } else if (cached) {
+        // 有本地缓存，显示缓存数据
+        currentPredictions = cached.predictions;
+        renderRankingTable(cached.predictions);
+        renderOpportunities(cached.opportunities);
+
+        // 显示预测目标日期
+        if (cached.predictions && cached.predictions.length > 0 && cached.predictions[0].prediction_date) {
+            const targetDateEl = document.getElementById('targetDate');
+            const targetDateBadgeEl = document.getElementById('targetDateBadge');
+            if (targetDateEl) targetDateEl.textContent = cached.predictions[0].prediction_date;
+            if (targetDateBadgeEl) targetDateBadgeEl.textContent = cached.predictions[0].prediction_date;
+        }
+
+        // 更新系统状态
+        const modelStatusEl = document.getElementById('modelStatus');
+        const sectorCountEl = document.getElementById('sectorCount');
+        const lastUpdateEl = document.getElementById('lastUpdate');
+        const predictionUpdateTimeEl = document.getElementById('predictionUpdateTime');
+        const opportunitiesUpdateTimeEl = document.getElementById('opportunitiesUpdateTime');
+        if (modelStatusEl) modelStatusEl.textContent = '已就绪';
+        if (sectorCountEl) sectorCountEl.textContent = cached.predictions.length;
+
+        // 显示缓存时间
+        const cacheTime = new Date(cached.timestamp);
+        if (lastUpdateEl) lastUpdateEl.textContent = cacheTime.toLocaleTimeString();
+        if (predictionUpdateTimeEl) predictionUpdateTimeEl.textContent = `更新于 ${cacheTime.toLocaleTimeString()}`;
+        if (opportunitiesUpdateTimeEl) opportunitiesUpdateTimeEl.textContent = `更新于 ${cacheTime.toLocaleTimeString()}`;
+        
+        // 加载图表数据和关键指标
+        loadChartData();
+        
+        // 显示缓存状态提示
+        if (hasValidCache) {
+            document.getElementById('modelStatus').innerHTML = '已就绪 <small class="text-muted">(缓存)</small>';
+            
+            // 如果有剩余时间，显示在页面上
+            if (cacheStatus.remaining_time_seconds) {
+                const remainingHours = Math.floor(cacheStatus.remaining_time_seconds / 3600);
+                const remainingMins = Math.floor((cacheStatus.remaining_time_seconds % 3600) / 60);
+                
+                // 显示缓存有效期
+                const cacheExpiryRow = document.getElementById('cacheExpiryRow');
+                const cacheExpiryEl = document.getElementById('cacheExpiry');
+                if (cacheExpiryRow && cacheExpiryEl) {
+                    cacheExpiryRow.style.display = 'flex';
+                    cacheExpiryEl.textContent = `${remainingHours}小时${remainingMins}分钟`;
+                    cacheExpiryEl.className = 'badge badge-soft-success';
+                }
+                
+                console.log(`缓存有效，剩余时间: ${remainingHours}小时${remainingMins}分钟`);
+            }
+        } else if (cacheStatus && cacheStatus.is_expired) {
+            // 缓存已过期，调用刷新数据函数
+            console.log('缓存已过期，触发自动刷新...');
+            refreshData();  // 使用与刷新按钮一致的等待画面（模态框）
+        } else {
+            // 没有缓存，显示首次加载提示
+            const cacheExpiryRow = document.getElementById('cacheExpiryRow');
+            const cacheExpiryEl = document.getElementById('cacheExpiry');
+            if (cacheExpiryRow && cacheExpiryEl) {
+                cacheExpiryRow.style.display = 'flex';
+                cacheExpiryEl.textContent = '首次加载';
+                cacheExpiryEl.className = 'badge badge-soft-info';
+            }
+        }
+
+        console.log(`已恢复上次的首页数据（缓存时间: ${cacheTime.toLocaleString()}）`);
+    } else {
+        // 没有本地缓存，加载新数据
+        loadRankingData(false);
+    }
+});
+
+function renderRankingTable(predictions) {
+    const tbody = document.getElementById('rankingBody');
+    if (!predictions || predictions.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4 text-muted">暂无数据</td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // 默认按预测涨幅降序排列
+    currentPredictions = [...predictions].sort((a, b) => b.predicted_return - a.predicted_return);
+    
+    // 重置排序状态
+    currentSortField = 'predicted_return';
+    currentSortOrder = 'desc';
+    
+    renderTableBody(currentPredictions);
+}
+
+function renderTableBody(predictions) {
+    const tbody = document.getElementById('rankingBody');
+    
+    tbody.innerHTML = predictions.map((pred, index) => {
+        // 进度条颜色：预测涨幅为正显示红色，为负显示绿色，0显示灰色
+        const probClass = pred.predicted_return > 0 ? 'probability-high' :
+                         pred.predicted_return < 0 ? 'probability-medium' : 'probability-low';
+        
+        // 交易信号颜色
+        let signalClass, signalBadge;
+        switch(pred.signal) {
+            case '买入':
+                signalClass = 'signal-buy';
+                signalBadge = 'badge-soft-success';
+                break;
+            case '强烈买入':
+                signalClass = 'signal-strong-buy';
+                signalBadge = 'badge-soft-success';
+                break;
+            case '卖出':
+                signalClass = 'signal-sell';
+                signalBadge = 'badge-soft-danger';
+                break;
+            case '强烈卖出':
+                signalClass = 'signal-strong-sell';
+                signalBadge = 'badge-soft-danger';
+                break;
+            case '观望':
+                signalClass = 'signal-hold';
+                signalBadge = 'badge-soft-warning';
+                break;
+            default:
+                signalClass = 'signal-hold';
+                signalBadge = 'badge-soft-warning';
+        }
+        
+        // 涨跌幅颜色：正为红色，负为绿色，0为灰色
+        let returnClass;
+        if (pred.predicted_return > 0) {
+            returnClass = 'text-up';
+        } else if (pred.predicted_return < 0) {
+            returnClass = 'text-down';
+        } else {
+            returnClass = 'text-gray';
+        }
+        
+        // 排名样式
+        const rankNum = index + 1;
+        const rankClass = rankNum === 1 ? 'rank-1' : rankNum === 2 ? 'rank-2' : rankNum === 3 ? 'rank-3' : 'rank-other';
+        
+        return `
+            <tr>
+                <td><span class="rank-badge ${rankClass}">${rankNum}</span></td>
+                <td style="color: #fff; font-weight: 600;">${pred.sector_name}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2" style="color: #4da3ff; font-weight: 700; width: 50px; display: inline-block; text-align: right;">${((pred.probability ?? 0) * 100).toFixed(1)}%</span>
+                        <div class="probability-bar flex-grow-1">
+                            <div class="probability-fill ${probClass}" style="width: ${(pred.probability ?? 0) * 100}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="${returnClass}" style="font-weight: 700; font-size: 1.05rem;">
+                    ${(pred.predicted_return ?? 0) >= 0 ? '+' : ''}${(pred.predicted_return ?? 0).toFixed(2)}%
+                </td>
+                <td>
+                    <span class="badge ${signalBadge}" style="font-size: 0.9rem;">
+                        <span class="signal-light ${signalClass}"></span>
+                        ${pred.signal}
+                    </span>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 排序功能
+let currentSortField = 'predicted_return';
+let currentSortOrder = 'desc';
+
+function sortTable(field) {
+    // 阻止事件冒泡
+    event.stopPropagation();
+    
+    if (currentSortField === field) {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortField = field;
+        currentSortOrder = 'desc';
+    }
+    
+    // 更新表头图标
+    document.querySelectorAll('.sortable').forEach(th => {
+        const icon = th.querySelector('i');
+        if (th.dataset.sort === field) {
+            icon.className = currentSortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+            th.classList.add('sorted-' + currentSortOrder);
+        } else {
+            icon.className = 'fas fa-sort';
+            th.classList.remove('sorted-asc', 'sorted-desc');
+        }
+    });
+    
+    // 排序数据
+    let sorted = [...currentPredictions];
+    sorted.sort((a, b) => {
+        let valA, valB;
+        
+        switch(field) {
+            case 'rank':
+                valA = currentPredictions.indexOf(a);
+                valB = currentPredictions.indexOf(b);
+                break;
+            case 'sector_name':
+                valA = a.sector_name || '';
+                valB = b.sector_name || '';
+                return currentSortOrder === 'asc' ? valA.localeCompare(valB, 'zh') : valB.localeCompare(valA, 'zh');
+            case 'probability':
+                valA = a.probability || 0;
+                valB = b.probability || 0;
+                break;
+            case 'predicted_return':
+                valA = a.predicted_return || 0;
+                valB = b.predicted_return || 0;
+                break;
+            case 'signal':
+                valA = a.signal || '';
+                valB = b.signal || '';
+                return currentSortOrder === 'asc' ? valA.localeCompare(valB, 'zh') : valB.localeCompare(valA, 'zh');
+            default:
+                valA = a[field] || 0;
+                valB = b[field] || 0;
+        }
+        
+        return currentSortOrder === 'asc' ? valA - valB : valB - valA;
+    });
+    
+    renderTableBody(sorted);
+}
+
+function renderOpportunities(opportunities) {
+    const container = document.getElementById('opportunitiesBody');
+    
+    // 筛选结果为"买入"的标的（包括"买入"和"强烈买入"）
+    let buySignals = [];
+    if (opportunities && opportunities.length > 0) {
+        buySignals = opportunities.filter(opp => opp.signal === '买入' || opp.signal === '强烈买入');
+    }
+    
+    // 按强烈程度降序排列：强烈买入 > 买入，同级别按概率降序
+    buySignals.sort((a, b) => {
+        // 信号强度排序
+        const signalOrder = { '强烈买入': 2, '买入': 1 };
+        const signalA = signalOrder[a.signal] || 0;
+        const signalB = signalOrder[b.signal] || 0;
+        
+        if (signalA !== signalB) {
+            return signalB - signalA; // 降序
+        }
+        // 同级别按概率降序
+        return (b.probability || 0) - (a.probability || 0);
+    });
+    
+    // 取前5名
+    const top5Opportunities = buySignals.slice(0, 5);
+    
+    // 若筛选结果为空则显示"无"
+    if (top5Opportunities.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-inbox fa-2x mb-3" style="color: #808080;"></i>
+                <p class="text-muted mb-0"></p>
+                <small class="text-muted">当前无买入信号</small>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = top5Opportunities.map((opp, index) => {
+        // 红涨绿跌
+        const returnClass = opp.predicted_return >= 0 ? 'text-up' : 'text-down';
+        // 信号样式
+        const signalClass = opp.signal === '强烈买入' ? 'text-success' : 'text-warning';
+        const signalIcon = opp.signal === '强烈买入' ? '🔥' : '📈';
+        
+        return `
+        <div class="d-flex align-items-center justify-content-between p-3 mb-2" 
+             style="background: rgba(82, 196, 26, 0.1); border-radius: 10px; border-left: 3px solid #52c41a;">
+            <div>
+                <div class="fw-bold text-white">${signalIcon} ${opp.sector_name}</div>
+                <small style="color: #b0b0b0;">信号: <span class="${signalClass}">${opp.signal}</span></small>
+            </div>
+            <div class="text-end">
+                <div class="${returnClass} fw-bold">${((opp.probability ?? 0) * 100).toFixed(1)}%</div>
+                <small style="color: #b0b0b0;">涨幅: ${(opp.predicted_return ?? 0) > 0 ? '+' : ''}${(opp.predicted_return ?? 0).toFixed(2)}%</small>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+
+
+function refreshAllData() {
+    loadRankingData();
+}
+
+// 刷新按钮触发刷新
+function refreshAllData() {
+    loadRankingData(true);  // 强制刷新
+}
+
+// 注意：页面初始加载逻辑在 DOMContentLoaded (第907行附近) 中处理
+// 不再需要额外的DOMContentLoaded监听器
+</script>
+{% endblock %}
