@@ -2,50 +2,66 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    branches:
+      - main
 
 jobs:
-  # 构建静态页面并部署
-  build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.8'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate static pages
-        run: python static_export.py
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'static_export'
+      - name: Build static files
+        run: |
+          mkdir -p docs
+          pip install Frozen-Flask
+          
+          cat > build_static.py << 'EOF'
+          from flask import Flask, render_template
+          from flask_frozen import Freezer
+          
+          app = Flask(__name__)
+          app.config['FREEZER_DESTINATION'] = 'docs'
+          app.config['FREEZER_BASE_URL'] = 'https://L-newbie.github.io/FinSectorForecast/'
+          app.config['FREEZER_RELATIVE_URLS'] = True
+          
+          @app.route('/')
+          def index():
+              return render_template('index.html', title='FinSectorForecast')
+          
+          @app.route('/predict')
+          def predict_page():
+              return render_template('predict.html', title='预测分析')
+          
+          @app.route('/training')
+          def training_page():
+              return render_template('training.html', title='模型训练')
+          
+          @app.route('/analysis')
+          def analysis_page():
+              return render_template('analysis.html', title='深度分析')
+          
+          if __name__ == '__main__':
+              freezer = Freezer(app)
+              freezer.freeze()
+              print("静态文件生成完成，保存到 docs 目录")
+          EOF
+          
+          python build_static.py
+          rm build_static.py
 
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
