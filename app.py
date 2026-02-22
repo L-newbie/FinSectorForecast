@@ -64,6 +64,12 @@ def merge_config(base_config, custom_params):
                 result['model']['training'] = {}
             result['model']['training'].update(custom_params['model']['training'])
     
+    # 合并预测参数
+    if 'predict' in custom_params:
+        if 'predict' not in result:
+            result['predict'] = {}
+        result['predict'].update(custom_params['predict'])
+    
     return result
 
 config = load_config()
@@ -320,6 +326,56 @@ def get_sectors():
     })
 
 
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    """获取当前配置信息"""
+    try:
+        # 返回前端需要的配置信息
+        config_data = {
+            'data': {
+                'history_days': config.get('data', {}).get('history_days', 365),
+                'feature_window': config.get('data', {}).get('feature_window', 60)
+            },
+            'model': {
+                'classifier': {
+                    'name': config.get('model', {}).get('classifier', {}).get('name', 'lightgbm'),
+                    'params': config.get('model', {}).get('classifier', {}).get('params', {
+                        'n_estimators': 200,
+                        'max_depth': 8,
+                        'learning_rate': 0.05,
+                        'num_leaves': 64,
+                        'min_child_samples': 10
+                    })
+                },
+                'regressor': {
+                    'name': config.get('model', {}).get('regressor', {}).get('name', 'lightgbm'),
+                    'params': config.get('model', {}).get('regressor', {}).get('params', {
+                        'n_estimators': 200,
+                        'max_depth': 8,
+                        'learning_rate': 0.05,
+                        'num_leaves': 64,
+                        'min_child_samples': 10
+                    })
+                },
+                'training': config.get('model', {}).get('training', {
+                    'test_size': 0.2,
+                    'validation_split': 0.2,
+                    'early_stopping_rounds': 15
+                })
+            },
+            'predict': {
+                'probability_threshold': config.get('predict', {}).get('probability_threshold', 0.8)
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'config': config_data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/api/predict/single', methods=['POST'])
 def predict_single():
     """单板块预测"""
@@ -328,7 +384,16 @@ def predict_single():
     date = data.get('date')
     
     try:
-        predictor = SectorPredictor(sector_name, config)
+        # 优先使用缓存的predictor
+        cache_key = f'predictor_{sector_name}'
+        if cache_key in predictors_cache:
+            cached = predictors_cache[cache_key]
+            predictor = cached['predictor']
+            print(f"使用缓存的模型预测: {sector_name}")
+        else:
+            predictor = SectorPredictor(sector_name, config)
+            print(f"使用新模型预测: {sector_name}")
+        
         prediction = predictor.predict(date)
         
         # 获取当前特征
@@ -368,7 +433,14 @@ def predict_multi():
         predictions = []
         for sector_name in sectors:
             try:
-                predictor = SectorPredictor(sector_name, config)
+                # 优先使用缓存的predictor
+                cache_key = f'predictor_{sector_name}'
+                if cache_key in predictors_cache:
+                    cached = predictors_cache[cache_key]
+                    predictor = cached['predictor']
+                else:
+                    predictor = SectorPredictor(sector_name, config)
+                
                 prediction = predictor.predict()
                 features = predictor.get_historical_features()
                 prediction['features'] = features
@@ -455,7 +527,14 @@ def predict_all():
         
         for sector_name in all_sectors:
             try:
-                predictor = SectorPredictor(sector_name, config)
+                # 优先使用缓存的predictor
+                cache_key = f'predictor_{sector_name}'
+                if cache_key in predictors_cache:
+                    cached = predictors_cache[cache_key]
+                    predictor = cached['predictor']
+                else:
+                    predictor = SectorPredictor(sector_name, config)
+                
                 prediction = predictor.predict()
                 features = predictor.get_historical_features()
                 prediction['features'] = features
@@ -548,7 +627,14 @@ def train_multi():
         
         print(f"\n{'='*50}")
         print(f"开始训练 {len(sectors)} 个板块模型")
+        print(f"训练参数: {custom_params}")
         print(f"{'='*50}")
+        
+        # 清除相关缓存，确保使用新训练的模型
+        for sector in sectors:
+            cache_key = f'predictor_{sector}'
+            if cache_key in predictors_cache:
+                del predictors_cache[cache_key]
         
         for i, sector in enumerate(sectors):
             try:
@@ -557,6 +643,15 @@ def train_multi():
                 
                 predictor = SectorPredictor(sector, train_config)
                 result = predictor.train()
+                
+                # 缓存训练好的predictor
+                cache_key = f'predictor_{sector}'
+                predictors_cache[cache_key] = {
+                    'predictor': predictor,
+                    'config': train_config,
+                    'trained_at': datetime.now().isoformat()
+                }
+                
                 results[sector] = result
                 success_count += 1
                 
@@ -564,6 +659,10 @@ def train_multi():
             except Exception as e:
                 results[sector] = {'error': str(e)}
                 print(f"  ✗ {sector} 训练失败: {str(e)}")
+        
+        # 清除预测缓存，确保下次预测使用新模型
+        cache_manager.clear('predict_all')
+        print("已清除预测缓存，下次预测将使用新训练的模型")
         
         print(f"{'='*50}")
         print(f"训练完成！成功 {success_count}/{len(sectors)} 个板块")
@@ -573,7 +672,8 @@ def train_multi():
             'success': True,
             'results': results,
             'success_count': success_count,
-            'message': f'成功训练 {success_count}/{len(sectors)} 个板块模型'
+            'message': f'成功训练 {success_count}/{len(sectors)} 个板块模型',
+            'cached': True
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})

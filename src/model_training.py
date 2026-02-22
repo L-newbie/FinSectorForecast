@@ -57,14 +57,41 @@ class ModelTrainer:
         self.config = config or {}
         self.model_config = self.config.get('model', {})
 
-        # 模型参数
-        self.classifier_params = self.model_config.get('classifier', {}).get('params', {})
-        self.regressor_params = self.model_config.get('regressor', {}).get('params', {})
+        # 获取分类器和回归器的参数
+        classifier_params = self.model_config.get('classifier', {}).get('params', {})
+        regressor_params = self.model_config.get('regressor', {}).get('params', {})
+        training_config = self.model_config.get('training', {})
+
+        # 分类模型参数 - 优先使用classifier.params中的值
+        self.n_estimators = classifier_params.get('n_estimators', 200)
+        self.max_depth = classifier_params.get('max_depth', 8)
+        self.learning_rate = classifier_params.get('learning_rate', 0.05)
+        self.num_leaves = classifier_params.get('num_leaves', 64)
+        self.min_child_samples = classifier_params.get('min_child_samples', 10)
+        self.classifier_params = classifier_params
+
+        # 回归模型参数 - 优先使用regressor.params中的值
+        self.regressor_n_estimators = regressor_params.get('n_estimators', 200)
+        self.regressor_max_depth = regressor_params.get('max_depth', 8)
+        self.regressor_learning_rate = regressor_params.get('learning_rate', 0.05)
+        self.regressor_num_leaves = regressor_params.get('num_leaves', 64)
+        self.regressor_min_child_samples = regressor_params.get('min_child_samples', 10)
+        self.regressor_params = regressor_params
 
         # 训练参数
-        training_config = self.model_config.get('training', {})
         self.test_size = training_config.get('test_size', 0.2)
-        self.early_stopping_rounds = training_config.get('early_stopping_rounds', 10)
+        self.early_stopping_rounds = training_config.get('early_stopping_rounds', 15)
+        self.validation_split = training_config.get('validation_split', 0.2)
+        
+        # 模型名称
+        self.classifier_name = self.model_config.get('classifier', {}).get('name', 'lightgbm')
+        self.regressor_name = self.model_config.get('regressor', {}).get('name', 'lightgbm')
+        
+        # 输出配置
+        output_config = self.config.get('output', {})
+        self.model_path = output_config.get('model_path', './models')
+        self.data_path = output_config.get('data_path', './data')
+        self.log_level = output_config.get('log_level', 'INFO')
 
         # 模型
         self.classifier = None
@@ -74,38 +101,88 @@ class ModelTrainer:
         self.feature_importance = None
 
     def _get_classifier(self) -> object:
-        """获取分类模型"""
-        if LGBM_AVAILABLE:
+        """获取分类模型 - 根据配置选择模型类型"""
+        model_name = self.classifier_name.lower()
+        
+        if model_name == 'lightgbm' and LGBM_AVAILABLE:
             # 添加silent参数抑制警告
-            params = {**self.classifier_params, 'silent': True, 'verbose': -1}
+            params = {**self.classifier_params, 'silent': True, 'verbose': -1,
+                     'n_estimators': self.n_estimators,
+                     'max_depth': self.max_depth,
+                     'learning_rate': self.learning_rate,
+                     'num_leaves': self.num_leaves,
+                     'min_child_samples': self.min_child_samples}
             return lgb.LGBMClassifier(**params)
-        elif XGB_AVAILABLE:
+        elif model_name == 'xgboost' and XGB_AVAILABLE:
             return xgb.XGBClassifier(**self.classifier_params)
-        elif SKLEARN_AVAILABLE:
+        elif model_name == 'randomforest' and SKLEARN_AVAILABLE:
             return RandomForestClassifier(
-                n_estimators=100,
-                max_depth=6,
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
                 random_state=42
             )
         else:
-            raise ImportError("没有可用的机器学习库")
+            # 降级到可用模型
+            if LGBM_AVAILABLE:
+                params = {**self.classifier_params, 'silent': True, 'verbose': -1,
+                         'n_estimators': self.n_estimators,
+                         'max_depth': self.max_depth,
+                         'learning_rate': self.learning_rate,
+                         'num_leaves': self.num_leaves,
+                         'min_child_samples': self.min_child_samples}
+                return lgb.LGBMClassifier(**params)
+            elif XGB_AVAILABLE:
+                return xgb.XGBClassifier(**self.classifier_params)
+            elif SKLEARN_AVAILABLE:
+                return RandomForestClassifier(
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    random_state=42
+                )
+            else:
+                raise ImportError("没有可用的机器学习库")
 
     def _get_regressor(self) -> object:
-        """获取回归模型"""
-        if LGBM_AVAILABLE:
+        """获取回归模型 - 根据配置选择模型类型"""
+        model_name = self.regressor_name.lower()
+        
+        if model_name == 'lightgbm' and LGBM_AVAILABLE:
             # 添加silent参数抑制警告
-            params = {**self.regressor_params, 'silent': True, 'verbose': -1}
+            params = {**self.regressor_params, 'silent': True, 'verbose': -1,
+                     'n_estimators': self.regressor_n_estimators,
+                     'max_depth': self.regressor_max_depth,
+                     'learning_rate': self.regressor_learning_rate,
+                     'num_leaves': self.regressor_num_leaves,
+                     'min_child_samples': self.regressor_min_child_samples}
             return lgb.LGBMRegressor(**params)
-        elif XGB_AVAILABLE:
+        elif model_name == 'xgboost' and XGB_AVAILABLE:
             return xgb.XGBRegressor(**self.regressor_params)
-        elif SKLEARN_AVAILABLE:
+        elif model_name == 'randomforest' and SKLEARN_AVAILABLE:
             return RandomForestRegressor(
-                n_estimators=100,
-                max_depth=6,
+                n_estimators=self.regressor_n_estimators,
+                max_depth=self.regressor_max_depth,
                 random_state=42
             )
         else:
-            raise ImportError("没有可用的机器学习库")
+            # 降级到可用模型
+            if LGBM_AVAILABLE:
+                params = {**self.regressor_params, 'silent': True, 'verbose': -1,
+                         'n_estimators': self.regressor_n_estimators,
+                         'max_depth': self.regressor_max_depth,
+                         'learning_rate': self.regressor_learning_rate,
+                         'num_leaves': self.regressor_num_leaves,
+                         'min_child_samples': self.regressor_min_child_samples}
+                return lgb.LGBMRegressor(**params)
+            elif XGB_AVAILABLE:
+                return xgb.XGBRegressor(**self.regressor_params)
+            elif SKLEARN_AVAILABLE:
+                return RandomForestRegressor(
+                    n_estimators=self.regressor_n_estimators,
+                    max_depth=self.regressor_max_depth,
+                    random_state=42
+                )
+            else:
+                raise ImportError("没有可用的机器学习库")
 
     def train_classifier(self, X: pd.DataFrame, y: pd.Series,
                          feature_names: Optional[List[str]] = None) -> Dict:
@@ -325,9 +402,16 @@ class ModelTrainer:
 
         return self.feature_importance.head(top_n)
 
-    def save_models(self, path: str):
-        """保存模型"""
+    def save_models(self, path: str = None):
+        """保存模型 - 使用配置中的model_path作为默认路径"""
         import pickle
+        import os
+        
+        if path is None:
+            path = os.path.join(self.model_path, 'model.pkl')
+        
+        # 确保目录存在
+        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else self.model_path, exist_ok=True)
 
         models = {
             'classifier': self.classifier,
@@ -340,9 +424,12 @@ class ModelTrainer:
 
         print(f"模型已保存到: {path}")
 
-    def load_models(self, path: str):
-        """加载模型"""
+    def load_models(self, path: str = None):
+        """加载模型 - 使用配置中的model_path作为默认路径"""
         import pickle
+        
+        if path is None:
+            path = os.path.join(self.model_path, 'model.pkl')
 
         with open(path, 'rb') as f:
             models = pickle.load(f)

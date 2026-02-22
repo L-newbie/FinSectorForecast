@@ -14,54 +14,6 @@ data:
   max_retries: 3
   # 重试延迟（秒）
   retry_delay: 2
-  # 板块列表
-  sectors:
-    - "半导体",
-    - "新能源",
-    - "医药生物",
-    - "电子元件",
-    - "计算机",
-    - "汽车产业链",
-    - "金融",
-    - "房地产",
-    - "有色金属",
-    - "化工",
-    - "军工",
-    - "消费电子"
-
-# 特征工程配置
-features:
-  # 价格特征
-  price:
-    - daily_return          # 当日涨跌幅
-    - return_5d            # 5日涨跌幅
-    - return_10d           # 10日涨跌幅
-    - return_20d           # 20日涨跌幅
-    - ma20_position        # 收盘价相对20日均线位置
-    - ma5_cross_ma20       # 5日均线与20日均线金叉死叉
-
-  # 资金特征
-  fund:
-    - net_inflow           # 资金净流入/流出金额
-    - net_inflow_rate      # 资金净流入/流出率
-    - net_inflow_5d        # 5日累计资金流向
-    - net_inflow_10d       # 10日累计资金流向
-
-  # 动量特征
-  momentum:
-    - rsi_6                # 6日RSI
-    - rsi_12               # 12日RSI
-    - macd                 # MACD
-    - macd_signal          # MACD信号线
-    - macd_histogram       # MACD柱状图
-    - bollinger_position   # 布林带位置
-
-  # 成交量特征
-  volume:
-    - volume_change_rate   # 成交量变化率
-    - volume_ma5           # 5日均量
-    - volume_ma20          # 20日均量
-    - price_volume_match   # 量价配合指标
 
 # 模型配置
 model:
@@ -95,8 +47,6 @@ model:
 predict:
   # 上涨概率阈值
   probability_threshold: 0.8
-  # 置信区间
-  confidence_interval: 0.95
 
 # 输出配置
 output:

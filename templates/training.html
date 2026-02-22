@@ -111,7 +111,7 @@
             </div>
             <div class="mb-3">
                 <label class="form-label">特征窗口天数</label>
-                <input type="number" class="form-control" id="featureWindow" value="30" min="5" max="90">
+                <input type="number" class="form-control" id="featureWindow" value="60" min="5" max="90">
                 <small class="text-muted">计算技术指标的窗口期</small>
             </div>
             <div class="mb-3">
@@ -123,6 +123,16 @@
                     <small class="text-muted">40%</small>
                 </div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">验证集比例</label>
+                <input type="number" class="form-control" id="validationSplit" value="0.2" min="0.1" max="0.3" step="0.05">
+                <small class="text-muted">验证集比例 (0.1-0.3)</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">早停轮数</label>
+                <input type="number" class="form-control" id="earlyStoppingRounds" value="15" min="5" max="30">
+                <small class="text-muted">早停轮数 (5-30)</small>
+            </div>
         </div>
         
         <!-- 分类模型参数 -->
@@ -130,28 +140,28 @@
             <h6 class="text-success mb-3"><i class="fas fa-check-circle me-2"></i>分类模型参数</h6>
             <div class="mb-3">
                 <label class="form-label">迭代次数 (n_estimators)</label>
-                <input type="number" class="form-control" id="classifierN_estimators" value="100" min="10" max="500">
+                <input type="number" class="form-control" id="classifierN_estimators" value="200" min="10" max="500">
             </div>
             <div class="mb-3">
                 <label class="form-label">最大深度 (max_depth)</label>
-                <input type="range" class="form-range" id="classifierMaxDepth" min="3" max="15" step="1" value="6">
+                <input type="range" class="form-range" id="classifierMaxDepth" min="3" max="15" step="1" value="8">
                 <div class="d-flex justify-content-between">
                     <small class="text-muted">3</small>
-                    <span id="classifierMaxDepthValue" class="badge bg-success">6</span>
+                    <span id="classifierMaxDepthValue" class="badge bg-success">8</span>
                     <small class="text-muted">15</small>
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label">学习率 (learning_rate)</label>
-                <input type="number" class="form-control" id="classifierLearningRate" value="0.1" min="0.01" max="0.5" step="0.01">
+                <input type="number" class="form-control" id="classifierLearningRate" value="0.05" min="0.01" max="0.5" step="0.01">
             </div>
             <div class="mb-3">
                 <label class="form-label">叶子节点数 (num_leaves)</label>
-                <input type="number" class="form-control" id="classifierNumLeaves" value="31" min="7" max="127">
+                <input type="number" class="form-control" id="classifierNumLeaves" value="64" min="7" max="127">
             </div>
             <div class="mb-3">
                 <label class="form-label">最小样本数 (min_child_samples)</label>
-                <input type="number" class="form-control" id="classifierMinChildSamples" value="20" min="5" max="100">
+                <input type="number" class="form-control" id="classifierMinChildSamples" value="10" min="5" max="100">
             </div>
         </div>
         
@@ -160,28 +170,38 @@
             <h6 class="text-warning mb-3" style="color: #ffd43b !important;"><i class="fas fa-chart-line me-2"></i>回归模型参数</h6>
             <div class="mb-3">
                 <label class="form-label">迭代次数 (n_estimators)</label>
-                <input type="number" class="form-control" id="regressorN_estimators" value="100" min="10" max="500">
+                <input type="number" class="form-control" id="regressorN_estimators" value="200" min="10" max="500">
             </div>
             <div class="mb-3">
                 <label class="form-label">最大深度 (max_depth)</label>
-                <input type="range" class="form-range" id="regressorMaxDepth" min="3" max="15" step="1" value="6">
+                <input type="range" class="form-range" id="regressorMaxDepth" min="3" max="15" step="1" value="8">
                 <div class="d-flex justify-content-between">
                     <small class="text-muted">3</small>
-                    <span id="regressorMaxDepthValue" class="badge bg-warning" style="color: #333;">6</span>
+                    <span id="regressorMaxDepthValue" class="badge bg-warning" style="color: #333;">8</span>
                     <small class="text-muted">15</small>
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label">学习率 (learning_rate)</label>
-                <input type="number" class="form-control" id="regressorLearningRate" value="0.1" min="0.01" max="0.5" step="0.01">
+                <input type="number" class="form-control" id="regressorLearningRate" value="0.05" min="0.01" max="0.5" step="0.01">
             </div>
             <div class="mb-3">
                 <label class="form-label">叶子节点数 (num_leaves)</label>
-                <input type="number" class="form-control" id="regressorNumLeaves" value="31" min="7" max="127">
+                <input type="number" class="form-control" id="regressorNumLeaves" value="64" min="7" max="127">
             </div>
             <div class="mb-3">
                 <label class="form-label">最小样本数 (min_child_samples)</label>
-                <input type="number" class="form-control" id="regressorMinChildSamples" value="20" min="5" max="100">
+                <input type="number" class="form-control" id="regressorMinChildSamples" value="10" min="5" max="100">
+            </div>
+        </div>
+        
+        <!-- 预测配置 -->
+        <div class="param-section">
+            <h6 class="text-info mb-3"><i class="fas fa-cogs me-2"></i>预测配置</h6>
+            <div class="mb-3">
+                <label class="form-label">上涨概率阈值</label>
+                <input type="number" class="form-control" id="probabilityThreshold" value="0.8" min="0.5" max="0.99" step="0.01">
+                <small class="text-muted">预测为上涨的概率阈值 (0.5-0.99)</small>
             </div>
         </div>
         
@@ -289,24 +309,109 @@ let selectedTrainSectors = [];
 // 任务状态缓存键名
 const TASK_KEY_TRAINING = 'training_task_status';
 
+// 板块列表本地缓存键名
+const SECTORS_LOCAL_CACHE_KEY = 'sectors_local_cache';
+const SECTORS_CACHE_TTL = 3600000; // 1小时（毫秒）
+
 // 标记是否正在训练中（防止重复提交）
 let isTrainingInProgress = false;
+
+// 从服务器加载配置
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        const result = await response.json();
+        
+        if (result.success && result.config) {
+            const cfg = result.config;
+            
+            // 更新数据参数
+            document.getElementById('historyDays').value = cfg.data.history_days;
+            document.getElementById('featureWindow').value = cfg.data.feature_window;
+            document.getElementById('testSize').value = cfg.model.training.test_size;
+            document.getElementById('testSizeValue').textContent = (cfg.model.training.test_size * 100) + '%';
+            document.getElementById('validationSplit').value = cfg.model.training.validation_split;
+            document.getElementById('earlyStoppingRounds').value = cfg.model.training.early_stopping_rounds;
+            
+            // 更新分类模型参数
+            document.getElementById('classifierN_estimators').value = cfg.model.classifier.params.n_estimators;
+            document.getElementById('classifierMaxDepth').value = cfg.model.classifier.params.max_depth;
+            document.getElementById('classifierMaxDepthValue').textContent = cfg.model.classifier.params.max_depth;
+            document.getElementById('classifierLearningRate').value = cfg.model.classifier.params.learning_rate;
+            document.getElementById('classifierNumLeaves').value = cfg.model.classifier.params.num_leaves;
+            document.getElementById('classifierMinChildSamples').value = cfg.model.classifier.params.min_child_samples;
+            
+            // 更新回归模型参数
+            document.getElementById('regressorN_estimators').value = cfg.model.regressor.params.n_estimators;
+            document.getElementById('regressorMaxDepth').value = cfg.model.regressor.params.max_depth;
+            document.getElementById('regressorMaxDepthValue').textContent = cfg.model.regressor.params.max_depth;
+            document.getElementById('regressorLearningRate').value = cfg.model.regressor.params.learning_rate;
+            document.getElementById('regressorNumLeaves').value = cfg.model.regressor.params.num_leaves;
+            document.getElementById('regressorMinChildSamples').value = cfg.model.regressor.params.min_child_samples;
+            
+            // 更新预测配置
+            document.getElementById('probabilityThreshold').value = cfg.predict.probability_threshold;
+            
+            console.log('配置已从服务器加载:', cfg);
+        }
+    } catch (e) {
+        console.error('加载配置失败:', e);
+    }
+}
+
+// 获取本地缓存的板块列表
+function getLocalSectorsCache() {
+    try {
+        const cached = localStorage.getItem(SECTORS_LOCAL_CACHE_KEY);
+        if (cached) {
+            const data = JSON.parse(cached);
+            const now = Date.now();
+            if (data.timestamp && (now - data.timestamp) < SECTORS_CACHE_TTL) {
+                return data.sectors;
+            }
+        }
+    } catch (e) {
+        console.error('读取本地板块缓存失败:', e);
+    }
+    return null;
+}
+
+// 保存板块列表到本地缓存
+function saveLocalSectorsCache(sectors) {
+    try {
+        const data = {
+            sectors: sectors,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(SECTORS_LOCAL_CACHE_KEY, JSON.stringify(data));
+        console.log('板块列表已缓存到本地');
+    } catch (e) {
+        console.error('保存本地板块缓存失败:', e);
+    }
+}
 
 // 异步加载板块列表
 async function loadTrainSectors() {
     const sectorListEl = document.getElementById('trainSectorCheckboxes');
     if (!sectorListEl) return;
     
+    // 先尝试从本地缓存读取
+    const localSectors = getLocalSectorsCache();
+    if (localSectors && localSectors.length > 0) {
+        console.log('使用本地缓存的板块列表');
+        renderSectors(localSectors);
+        return;
+    }
+    
+    // 本地缓存不存在或过期，从服务器获取
     try {
         const response = await fetch('/api/sectors');
         const result = await response.json();
         
         if (result.success && result.data) {
-            sectorListEl.innerHTML = result.data.map(sector => 
-                `<div class="train-sector-item" data-sector="${sector}" onclick="toggleTrainSectorItem(this, '${sector}')" style="cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-bottom: 2px; background: transparent;">
-                    ${sector}
-                </div>`
-            ).join('');
+            // 保存到本地缓存
+            saveLocalSectorsCache(result.data);
+            renderSectors(result.data);
         } else {
             sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败</div>';
         }
@@ -316,9 +421,22 @@ async function loadTrainSectors() {
     }
 }
 
-// 页面加载完成后异步加载板块列表
+// 渲染板块列表
+function renderSectors(sectors) {
+    const sectorListEl = document.getElementById('trainSectorCheckboxes');
+    if (!sectorListEl) return;
+    
+    sectorListEl.innerHTML = sectors.map(sector => 
+        `<div class="train-sector-item" data-sector="${sector}" onclick="toggleTrainSectorItem(this, '${sector}')" style="cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-bottom: 2px; background: transparent;">
+            ${sector}
+        </div>`
+    ).join('');
+}
+
+// 页面加载完成后异步加载板块列表和配置
 document.addEventListener('DOMContentLoaded', function() {
     loadTrainSectors();
+    loadConfig();  // 加载配置
 });
 
 // 保存任务状态到本地存储
@@ -541,8 +659,13 @@ function getTrainingParams() {
                 }
             },
             training: {
-                test_size: parseFloat(document.getElementById('testSize').value)
+                test_size: parseFloat(document.getElementById('testSize').value),
+                validation_split: parseFloat(document.getElementById('validationSplit').value),
+                early_stopping_rounds: parseInt(document.getElementById('earlyStoppingRounds').value)
             }
+        },
+        predict: {
+            probability_threshold: parseFloat(document.getElementById('probabilityThreshold').value)
         }
     };
 }

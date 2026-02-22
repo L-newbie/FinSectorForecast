@@ -45,10 +45,10 @@ class SectorPredictor:
         self.feature_data = None
         self.training_results = None
 
-        # 配置
+        # 配置 - 直接从config中读取，避免重复读取
         self.history_days = self.config.get('data', {}).get('history_days', 365)
-        self.feature_window = self.config.get('data', {}).get('feature_window', 30)
-        self.probability_threshold = self.config.get('predict', {}).get('probability_threshold', 0.6)
+        self.feature_window = self.config.get('data', {}).get('feature_window', 60)
+        self.probability_threshold = self.config.get('predict', {}).get('probability_threshold', 0.8)
 
     def prepare_data(self, days: int = 365) -> bool:
         """
@@ -280,10 +280,11 @@ class SectorPredictor:
             ]
 
     def _get_confidence(self, probability: float) -> str:
-        """获取预测置信度"""
-        if probability > 0.8:
+        """获取预测置信度 - 使用配置中的阈值"""
+        threshold = self.probability_threshold
+        if probability > threshold + 0.1:
             return "非常高"
-        elif probability > 0.65:
+        elif probability > threshold:
             return "高"
         elif probability > 0.55:
             return "中等"
@@ -293,14 +294,15 @@ class SectorPredictor:
             return "非常低"
 
     def _get_signal(self, probability: float, predicted_return: float) -> str:
-        """获取交易信号"""
-        if probability > 0.9 and predicted_return > 0:
+        """获取交易信号 - 使用配置中的阈值"""
+        threshold = self.probability_threshold
+        if probability > threshold + 0.1 and predicted_return > 0:
             return "强烈买入"
-        elif probability > 0.8 and predicted_return > 0:
+        elif probability > threshold and predicted_return > 0:
             return "买入"
-        elif probability < 0.1 and predicted_return < 0:
+        elif probability < 1 - threshold - 0.1 and predicted_return < 0:
             return "强烈卖出"
-        elif probability < 0.2 and predicted_return < 0:
+        elif probability < 1 - threshold and predicted_return < 0:
             return "卖出"
         else:
             return "观望"

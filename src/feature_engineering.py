@@ -29,7 +29,7 @@ class FeatureEngineer:
             config: 配置字典
         """
         self.config = config or {}
-        self.feature_window = self.config.get('data', {}).get('feature_window', 30)
+        self.feature_window = self.config.get('data', {}).get('feature_window', 60)
 
     def create_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """

@@ -364,21 +364,61 @@ const CACHE_KEY_ANALYSIS = 'analysis_page_cache';
 // 任务状态缓存键名
 const TASK_KEY_ANALYSIS = 'analysis_task_status';
 
+// 板块列表本地缓存键名
+const SECTORS_LOCAL_CACHE_KEY = 'sectors_local_cache';
+const SECTORS_CACHE_TTL = 3600000; // 1小时（毫秒）
+
+// 获取本地缓存的板块列表
+function getLocalSectorsCache() {
+    try {
+        const cached = localStorage.getItem(SECTORS_LOCAL_CACHE_KEY);
+        if (cached) {
+            const data = JSON.parse(cached);
+            const now = Date.now();
+            if (data.timestamp && (now - data.timestamp) < SECTORS_CACHE_TTL) {
+                return data.sectors;
+            }
+        }
+    } catch (e) {
+        console.error('读取本地板块缓存失败:', e);
+    }
+    return null;
+}
+
+// 保存板块列表到本地缓存
+function saveLocalSectorsCache(sectors) {
+    try {
+        const data = {
+            sectors: sectors,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(SECTORS_LOCAL_CACHE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.error('保存本地板块缓存失败:', e);
+    }
+}
+
 // 异步加载板块列表
 async function loadAnalysisSectors() {
     const sectorListEl = document.getElementById('analysisSectorList');
     if (!sectorListEl) return;
     
+    // 先尝试从本地缓存读取
+    const localSectors = getLocalSectorsCache();
+    if (localSectors && localSectors.length > 0) {
+        console.log('使用本地缓存的板块列表');
+        renderAnalysisSectors(localSectors);
+        return;
+    }
+    
+    // 本地缓存不存在或过期，从服务器获取
     try {
         const response = await fetch('/api/sectors');
         const result = await response.json();
         
         if (result.success && result.data) {
-            sectorListEl.innerHTML = result.data.map(sector => 
-                `<div class="analysis-sector-item" data-sector="${sector}" onclick="selectAnalysisSector('${sector}')" style="cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-bottom: 2px; background: transparent;">
-                    ${sector}
-                </div>`
-            ).join('');
+            saveLocalSectorsCache(result.data);
+            renderAnalysisSectors(result.data);
         } else {
             sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败</div>';
         }
@@ -386,6 +426,18 @@ async function loadAnalysisSectors() {
         console.error('加载板块列表失败:', e);
         sectorListEl.innerHTML = '<div class="text-danger px-3">加载失败: ' + e.message + '</div>';
     }
+}
+
+// 渲染板块列表
+function renderAnalysisSectors(sectors) {
+    const sectorListEl = document.getElementById('analysisSectorList');
+    if (!sectorListEl) return;
+    
+    sectorListEl.innerHTML = sectors.map(sector => 
+        `<div class="analysis-sector-item" data-sector="${sector}" onclick="selectAnalysisSector('${sector}')" style="cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-bottom: 2px; background: transparent;">
+            ${sector}
+        </div>`
+    ).join('');
 }
 
 // 页面加载完成后异步加载板块列表

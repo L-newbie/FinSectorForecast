@@ -30,6 +30,9 @@ class DataFetcher:
             config: 配置字典
         """
         self.config = config or {}
+        
+        # 数据源配置
+        self.data_source = self.config.get('data', {}).get('source', 'akshare')
         self.history_days = self.config.get('data', {}).get('history_days', 365)
         self._akshare_available = self._check_akshare()
         
