@@ -499,22 +499,42 @@ class SectorPredictor:
         # 获取最后一条
         latest = self.feature_data.iloc[-1]
 
+        def _to_native(value):
+            """将numpy类型转换为Python原生类型"""
+            import numpy as np
+            if isinstance(value, (np.integer, np.int32, np.int64)):
+                return int(value)
+            elif isinstance(value, (np.floating, np.float32, np.float64)):
+                return float(value)
+            elif isinstance(value, np.bool_):
+                return bool(value)
+            return value
+
         # 关键特征
         key_features = {
             'date': str(latest.get('date', '')),
-            'close': latest.get('close', 0),
-            'change_pct': latest.get('change_pct', 0),
-            'net_inflow': latest.get('net_inflow', 0),
-            'rsi_14': latest.get('rsi_14', 0),
-            'macd': latest.get('macd', 0),
-            'macd_histogram': latest.get('macd_histogram', 0),
-            'bb_position': latest.get('bb_position', 0),
-            'volume_ratio_5d': latest.get('volume_ratio_5d', 0),
-            'return_5d': latest.get('return_5d', 0),
-            'return_10d': latest.get('return_10d', 0),
-            'return_20d': latest.get('return_20d', 0),
-            'net_inflow_5d': latest.get('net_inflow_5d', 0),
-            'net_inflow_10d': latest.get('net_inflow_10d', 0),
+            'close': _to_native(latest.get('close', 0)),
+            'change_pct': _to_native(latest.get('change_pct', 0)),
+            'net_inflow': _to_native(latest.get('net_inflow', 0)),
+            'volume': _to_native(latest.get('volume', 0)),
+            'turnover': _to_native(latest.get('turnover', 0)),
+            'rsi_14': _to_native(latest.get('rsi_14', 0)),
+            'macd': _to_native(latest.get('macd', 0)),
+            'macd_signal': _to_native(latest.get('macd_signal', 0)),
+            'macd_histogram': _to_native(latest.get('macd_histogram', 0)),
+            'bb_position': _to_native(latest.get('bb_position', 0)),
+            'volume_ratio_5d': _to_native(latest.get('volume_ratio_5d', 0)),
+            'return_5d': _to_native(latest.get('return_5d', 0)),
+            'return_10d': _to_native(latest.get('return_10d', 0)),
+            'return_20d': _to_native(latest.get('return_20d', 0)),
+            'net_inflow_5d': _to_native(latest.get('net_inflow_5d', 0)),
+            'net_inflow_10d': _to_native(latest.get('net_inflow_10d', 0)),
+            # 移动平均线 (注意字段名是 ma5, ma10, ma20)
+            'ma_5': _to_native(latest.get('ma5', 0)),
+            'ma_10': _to_native(latest.get('ma10', 0)),
+            'ma_20': _to_native(latest.get('ma20', 0)),
+            # 波动率 (注意字段名是 volatility_20d)
+            'volatility_20': _to_native(latest.get('volatility_20d', 0)),
         }
 
         return key_features

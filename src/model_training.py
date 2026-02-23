@@ -356,9 +356,10 @@ class ModelTrainer:
         probability = self.classifier.predict_proba(X)[:, 1]
         predicted_return = self.regressor.predict(X)
 
+        # 转换为Python原生类型以支持JSON序列化
         return {
-            'probability': probability,
-            'predicted_return': predicted_return,
+            'probability': probability.astype(float),
+            'predicted_return': predicted_return.astype(float),
             'prediction_up': (probability > 0.5).astype(int)
         }
 

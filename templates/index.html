@@ -244,6 +244,11 @@
     #rankingTableContainer {
         max-height: calc(100vh - 200px);
     }
+    /* 高亮行样式（从详情页返回时） */
+    tr.highlighted-row {
+        background-color: rgba(77, 163, 255, 0.3) !important;
+        transition: background-color 2s ease;
+    }
 }
 </style>
 
@@ -865,6 +870,15 @@ function exportToCSV() {
     document.body.removeChild(link);
     
     console.log('数据已导出为CSV文件');
+}
+
+// 跳转到板块详情页面
+function goToSectorDetail(sectorName, sectorId) {
+    if (sectorId) {
+        window.location.href = `/sector_detail?id=${sectorId}&name=${encodeURIComponent(sectorName)}`;
+    } else {
+        window.location.href = `/sector_detail?name=${encodeURIComponent(sectorName)}`;
+    }
 }
 
 // 保存首页数据到本地缓存（持久化缓存，不按日期清理）
@@ -1544,9 +1558,9 @@ function renderTableBody(predictions) {
         const rankClass = rankNum === 1 ? 'rank-1' : rankNum === 2 ? 'rank-2' : rankNum === 3 ? 'rank-3' : 'rank-other';
         
         return `
-            <tr>
+            <tr data-sector-name="${pred.sector_name}">
                 <td><span class="rank-badge ${rankClass}">${rankNum}</span></td>
-                <td style="color: #fff; font-weight: 600;">${pred.sector_name}</td>
+                <td style="color: #4da3ff; font-weight: 600; cursor: pointer;" onclick="goToSectorDetail('${pred.sector_name}', ${pred.sector_id})" title="点击查看板块详情">${pred.sector_name} <i class="fas fa-external-link-alt" style="font-size: 0.7rem; margin-left: 4px;"></i></td>
                 <td>
                     <div class="d-flex align-items-center">
                         <span class="me-2" style="color: #4da3ff; font-weight: 700; width: 50px; display: inline-block; text-align: right;">${((pred.probability ?? 0) * 100).toFixed(1)}%</span>
@@ -1707,5 +1721,34 @@ function refreshAllData() {
 
 // 注意：页面初始加载逻辑在 DOMContentLoaded (第907行附近) 中处理
 // 不再需要额外的DOMContentLoaded监听器
+
+// 处理从详情页返回时的高亮显示
+(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlight = urlParams.get('highlight');
+    if (highlight) {
+        // 等待表格渲染完成
+        const checkAndHighlight = setInterval(() => {
+            const tbody = document.getElementById('rankingBody');
+            if (tbody && tbody.children.length > 0) {
+                const rows = tbody.querySelectorAll('tr[data-sector-name]');
+                for (let row of rows) {
+                    if (row.dataset.sectorName === highlight) {
+                        // 滚动到该行
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // 添加高亮样式
+                        row.classList.add('highlighted-row');
+                        // 3秒后移除高亮
+                        setTimeout(() => {
+                            row.classList.remove('highlighted-row');
+                        }, 3000);
+                        clearInterval(checkAndHighlight);
+                        break;
+                    }
+                }
+            }
+        }, 100);
+    }
+})();
 </script>
 {% endblock %}

@@ -537,7 +537,7 @@ def predict_all():
         success_count = 0
         error_count = 0
         
-        for sector_name in all_sectors:
+        for i, sector_name in enumerate(all_sectors):
             try:
                 # 优先使用缓存的predictor
                 cache_key = f'predictor_{sector_name}'
@@ -550,6 +550,8 @@ def predict_all():
                 prediction = predictor.predict()
                 features = predictor.get_historical_features()
                 prediction['features'] = features
+                # 添加板块ID（使用索引）
+                prediction['sector_id'] = i + 1
                 predictions.append(prediction)
                 success_count += 1
             except Exception as e:
@@ -557,6 +559,7 @@ def predict_all():
                 print(f"  ✗ {sector_name} 预测失败: {str(e)}")
                 predictions.append({
                     'sector_name': sector_name,
+                    'sector_id': i + 1,
                     'error': str(e),
                     'predicted_return': 0,
                     'probability': 0.5,
@@ -591,6 +594,227 @@ def predict_all():
     except Exception as e:
         print(f"predict_all 错误: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/sector/detail', methods=['GET'])
+def get_sector_detail():
+    """获取板块详情数据"""
+    sector_name = request.args.get('name', '')
+    sector_id = request.args.get('id', '')
+    
+    if not sector_name and not sector_id:
+        return jsonify({'success': False, 'error': '请提供板块名称或ID'})
+    
+    try:
+        # 使用缓存的predictor或创建新的
+        cache_key = f'predictor_{sector_name}'
+        if cache_key in predictors_cache:
+            cached = predictors_cache[cache_key]
+            predictor = cached['predictor']
+        else:
+            predictor = SectorPredictor(sector_name, config)
+        
+        # 获取预测结果
+        prediction = predictor.predict()
+        
+        # 获取历史特征数据
+        features = predictor.get_historical_features()
+        
+        # 获取原始数据用于图表
+        if predictor.raw_data is not None:
+            raw_data = predictor.raw_data.copy()
+            # 取最近60天数据
+            raw_data = raw_data.tail(60)
+            price_history = []
+            for idx, row in raw_data.iterrows():
+                price_history.append({
+                    'date': row['date'].strftime('%Y-%m-%d') if hasattr(row['date'], 'strftime') else str(row['date']),
+                    'price': float(row['close']) if 'close' in row else 0,
+                    'volume': float(row['volume']) if 'volume' in row else 0,
+                    'change_pct': float(row['change_pct']) if 'change_pct' in row else 0
+                })
+        else:
+            price_history = []
+        
+        # 构建技术指标数据
+        indicators = []
+        if features:
+            # MA指标
+            indicators.append({
+                'name': 'MA5',
+                'value': f"{features.get('ma_5', 0):.2f}",
+                'trend': 'positive' if features.get('ma_5', 0) > features.get('ma_10', 0) else 'negative',
+                'trendText': '向上' if features.get('ma_5', 0) > features.get('ma_10', 0) else '向下',
+                'signal': 'buy' if features.get('ma_5', 0) > features.get('ma_10', 0) else 'sell',
+                'signalText': '买入' if features.get('ma_5', 0) > features.get('ma_10', 0) else '卖出'
+            })
+            indicators.append({
+                'name': 'MA10',
+                'value': f"{features.get('ma_10', 0):.2f}",
+                'trend': 'positive' if features.get('ma_10', 0) > features.get('ma_20', 0) else 'negative',
+                'trendText': '向上' if features.get('ma_10', 0) > features.get('ma_20', 0) else '向下',
+                'signal': 'buy' if features.get('ma_10', 0) > features.get('ma_20', 0) else 'sell',
+                'signalText': '买入' if features.get('ma_10', 0) > features.get('ma_20', 0) else '卖出'
+            })
+            indicators.append({
+                'name': 'MA20',
+                'value': f"{features.get('ma_20', 0):.2f}",
+                'trend': 'neutral',
+                'trendText': '持平',
+                'signal': 'hold',
+                'signalText': '观望'
+            })
+            
+            # RSI指标
+            rsi = features.get('rsi_14', 50)
+            rsi_signal = 'sell' if rsi > 70 else ('buy' if rsi < 30 else 'hold')
+            rsi_signal_text = '超买' if rsi > 70 else ('超卖' if rsi < 30 else '正常')
+            indicators.append({
+                'name': 'RSI(14)',
+                'value': f"{rsi:.2f}",
+                'trend': 'positive' if rsi < 30 else ('negative' if rsi > 70 else 'neutral'),
+                'trendText': rsi_signal_text,
+                'signal': rsi_signal,
+                'signalText': '买入' if rsi_signal == 'buy' else ('卖出' if rsi_signal == 'sell' else '观望')
+            })
+            
+            # MACD指标
+            macd = features.get('macd', 0)
+            macd_signal_val = features.get('macd_signal', 0)
+            macd_histogram = features.get('macd_histogram', 0)
+            indicators.append({
+                'name': 'MACD',
+                'value': f"{macd:.4f}",
+                'trend': 'positive' if macd > macd_signal_val else 'negative',
+                'trendText': '金叉' if macd > macd_signal_val else '死叉',
+                'signal': 'buy' if macd > macd_signal_val else 'sell',
+                'signalText': '买入' if macd > macd_signal_val else '卖出'
+            })
+            
+            # 布林带
+            bb_upper = features.get('bb_upper', 0)
+            bb_lower = features.get('bb_lower', 0)
+            current_price = features.get('close', 0) or (price_history[-1]['price'] if price_history else 0)
+            bb_position = (current_price - bb_lower) / (bb_upper - bb_lower) if (bb_upper - bb_lower) != 0 else 0.5
+            indicators.append({
+                'name': '布林带位置',
+                'value': f"{bb_position * 100:.1f}%",
+                'trend': 'negative' if bb_position > 0.8 else ('positive' if bb_position < 0.2 else 'neutral'),
+                'trendText': '上轨附近' if bb_position > 0.8 else ('下轨附近' if bb_position < 0.2 else '中轨区域'),
+                'signal': 'sell' if bb_position > 0.8 else ('buy' if bb_position < 0.2 else 'hold'),
+                'signalText': '卖出' if bb_position > 0.8 else ('买入' if bb_position < 0.2 else '观望')
+            })
+            
+            # 成交量比率
+            vol_ratio = features.get('volume_ratio', 1)
+            indicators.append({
+                'name': '量比',
+                'value': f"{vol_ratio:.2f}",
+                'trend': 'positive' if vol_ratio > 1.5 else ('negative' if vol_ratio < 0.5 else 'neutral'),
+                'trendText': '放量' if vol_ratio > 1.5 else ('缩量' if vol_ratio < 0.5 else '正常'),
+                'signal': 'buy' if vol_ratio > 1.5 else 'hold',
+                'signalText': '关注' if vol_ratio > 1.5 else '观望'
+            })
+        
+        # 模拟成分股数据（实际项目中应从数据源获取）
+        components = [
+            {'name': '个股A', 'code': '000001', 'price': '15.68', 'change': '+2.35%'},
+            {'name': '个股B', 'code': '000002', 'price': '23.45', 'change': '+1.28%'},
+            {'name': '个股C', 'code': '000003', 'price': '8.92', 'change': '-0.56%'},
+            {'name': '个股D', 'code': '000004', 'price': '45.60', 'change': '+3.12%'},
+            {'name': '个股E', 'code': '000005', 'price': '12.30', 'change': '-1.05%'},
+        ]
+        
+        # 计算历史表现（基于真实价格数据）
+        history = {}
+        if price_history and len(price_history) >= 5:
+            # 5日涨跌幅
+            start_price_5d = price_history[0]['price']
+            end_price = price_history[-1]['price']
+            change_5d = ((end_price - start_price_5d) / start_price_5d * 100) if start_price_5d > 0 else 0
+            history['5d'] = f"{change_5d:+.2f}%"
+        else:
+            history['5d'] = '--'
+            
+        if price_history and len(price_history) >= 10:
+            start_price_10d = price_history[-10]['price']
+            end_price = price_history[-1]['price']
+            change_10d = ((end_price - start_price_10d) / start_price_10d * 100) if start_price_10d > 0 else 0
+            history['10d'] = f"{change_10d:+.2f}%"
+        else:
+            history['10d'] = '--'
+            
+        if price_history and len(price_history) >= 30:
+            start_price_30d = price_history[-30]['price']
+            end_price = price_history[-1]['price']
+            change_30d = ((end_price - start_price_30d) / start_price_30d * 100) if start_price_30d > 0 else 0
+            history['30d'] = f"{change_30d:+.2f}%"
+        else:
+            history['30d'] = '--'
+            
+        # 年初至今（基于全年数据）
+        if price_history and len(price_history) >= 60:
+            start_price_year = price_history[0]['price']
+            end_price = price_history[-1]['price']
+            change_year = ((end_price - start_price_year) / start_price_year * 100) if start_price_year > 0 else 0
+            history['year'] = f"{change_year:+.2f}%"
+        else:
+            history['year'] = '--'
+        
+        # 计算风险等级
+        volatility = features.get('volatility_20', 0) if features else 0
+        if volatility < 0.02:
+            risk_level = '低'
+            risk_desc = '波动较小，风险较低'
+        elif volatility < 0.04:
+            risk_level = '中'
+            risk_desc = '波动适中，注意风险控制'
+        else:
+            risk_level = '高'
+            risk_desc = '波动较大，谨慎操作'
+        
+        # 构建返回数据
+        result = {
+            'success': True,
+            'data': {
+                'name': sector_name,
+                'id': sector_id,
+                'code': sector_name,
+                'currentPrice': f"{features.get('close', 0):.2f}" if features else '--',
+                'priceChange': f"+{prediction.get('predicted_return', 0):.2f}%" if prediction.get('predicted_return', 0) >= 0 else f"{prediction.get('predicted_return', 0):.2f}%",
+                'changePercent': f"+{prediction.get('predicted_return', 0):.2f}%" if prediction.get('predicted_return', 0) >= 0 else f"{prediction.get('predicted_return', 0):.2f}%",
+                'volume': f"{features.get('volume', 0) / 10000:.0f}万" if features and features.get('volume', 0) > 0 else '--',
+                'turnover': f"{features.get('turnover', 0) / 100000000:.2f}亿" if features and features.get('turnover', 0) > 0 else '--',
+                'prediction': f"+{prediction.get('predicted_return', 0):.2f}%" if prediction.get('predicted_return', 0) >= 0 else f"{prediction.get('predicted_return', 0):.2f}%",
+                'accuracy': f"{prediction.get('probability', 0) * 100:.1f}",
+                'riskLevel': risk_level,
+                'riskDesc': risk_desc,
+                'signal': prediction.get('signal', '观望'),
+                'confidence': prediction.get('confidence', '中等'),
+                'recommendation': prediction.get('recommendation', '建议观望'),
+                'signal_analysis': prediction.get('signal_analysis', {}),
+                'indicators': indicators,
+                'components': components,
+                'history': history,
+                'priceHistory': price_history,
+                'prediction_date': prediction.get('prediction_date', ''),
+                'base_date': prediction.get('base_date', '')
+            }
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"获取板块详情失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/sector_detail')
+def sector_detail_page():
+    """板块详情页面"""
+    return render_template('sector_detail.html')
 
 
 @app.route('/api/train/single', methods=['POST'])
