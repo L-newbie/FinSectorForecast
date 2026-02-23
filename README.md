@@ -1,5 +1,3 @@
-<div align="center">
-
 # 📈 FinSectorForecast
 
 **A股金融板块智能预测系统**
@@ -13,55 +11,65 @@
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [API文档](#-api文档) • [配置说明](#️-配置说明)
 
-</div>
-
 ---
 
 ## 📖 项目简介
 
-FinSectorForecast 是一个基于历史30天资金流向、涨跌幅等技术指标的A股板块预测系统。系统采用 LightGBM/XGBoost 机器学习模型，通过分类模型预测板块次日上涨概率，通过回归模型预测预期涨幅，为投资决策提供数据支持。
+FinSectorForecast 是一个基于历史资金流向、涨跌幅等技术指标的A股板块预测系统。系统采用 LightGBM/XGBoost 机器学习模型，通过分类模型预测板块次日涨跌概率，通过回归模型预测预期涨幅，为投资决策提供数据支持。
 
 ### 核心能力
 
 - 🎯 **双模型预测**：分类模型预测涨跌概率 + 回归模型预测涨幅空间
 - 📊 **30+ 技术指标**：涵盖价格、资金、动量、成交量等多维度特征
 - 🔄 **实时数据获取**：通过 akshare 接口获取东方财富板块数据
-- 💾 **智能缓存系统**：LRU淘汰 + TTL过期 + 线程安全的高性能缓存
+- 💾 **多级缓存系统**：LRU淘汰 + TTL过期 + 线程安全的高性能缓存
 - 🖥️ **双模式运行**：Web可视化界面 + 命令行批量处理
+- ⚡ **后台任务管理**：异步任务执行、定时刷新、智能调度
+- 📱 **响应式Web界面**：现代SPA架构，流畅的用户体验
 
 ---
 
 ## ✨ 功能特性
 
 ### 📊 数据获取模块
+
 | 功能 | 说明 |
 |:-----|:-----|
 | 板块资金流向 | 从东方财富获取行业/概念板块资金流向数据 |
 | 历史行情数据 | 获取板块历史行情，支持自定义天数 |
 | 数据清洗 | 自动处理缺失值、异常值，确保数据质量 |
+| 板块列表管理 | 智能缓存板块列表，支持后台定时刷新 |
 
 ### 🔧 特征工程模块
+
 | 特征类型 | 包含指标 |
 |:---------|:---------|
 | 价格特征 | 涨跌幅、均线系统、价格波动率、布林带位置 |
 | 资金特征 | 主力净流入、超大单/大单/中单/小单流向、资金净流入比率 |
-| 动量指标 | RSI相对强弱指数、MACD指标、KDJ指标 |
+| 动量指标 | RSI相对强弱指数(6/12/14日)、MACD指标、KDJ指标 |
 | 成交量特征 | 成交量均线、量价关系、换手率 |
 | 序列特征 | 30天状态序列、趋势编码、动量变化序列 |
 
 ### 🤖 机器学习模块
+
 - **分类模型**：预测次日上涨概率（0-100%）
 - **回归模型**：预测次日预期涨幅
 - **支持算法**：LightGBM、XGBoost、RandomForest
 - **模型评估**：准确率、精确率、召回率、F1-Score、AUC
 
 ### 💾 缓存系统
+
 - **LRU淘汰策略**：自动淘汰最近最少使用的缓存
-- **TTL过期机制**：支持设置缓存生存时间
+- **TTL过期机制**：支持不同类型数据设置独立过期时间
 - **线程安全**：多线程环境下安全运行
 - **缓存监控**：实时统计命中率、容量使用情况
+- **多级缓存架构**：
+  - 内存缓存 (MemoryCache)
+  - 缓存管理器 (CacheManager)
+  - 页面片段缓存 (SectionCache)
 
 ### 🎨 Web界面
+
 | 页面 | 功能 |
 |:-----|:-----|
 | 仪表盘 | 全板块预测排名、市场概览、最佳投资机会 |
@@ -191,7 +199,8 @@ GET /api/sectors
 {
   "success": true,
   "data": ["半导体", "新能源", "医药", "..."],
-  "count": 100
+  "count": 100,
+  "cache_status": "cached"
 }
 ```
 
@@ -202,7 +211,7 @@ Content-Type: application/json
 
 {
   "sector": "半导体",
-  "date": "2024-01-15"  // 可选，默认当天
+  "date": "2024-01-15"
 }
 ```
 
@@ -213,7 +222,7 @@ Content-Type: application/json
 
 {
   "sectors": ["半导体", "新能源", "医药"],
-  "force_refresh": false  // 可选，是否强制刷新缓存
+  "force_refresh": false
 }
 ```
 
@@ -286,12 +295,20 @@ model:
     early_stopping_rounds: 10   # 早停轮数
 ```
 
-### 预测配置
+### 缓存配置
 
 ```yaml
-predict:
-  probability_threshold: 0.8    # 上涨概率阈值
-  confidence_interval: 0.95     # 置信区间
+cache:
+  expiry:
+    sectors: 3600       # 板块列表缓存1小时
+    predict_all: 21600  # 全板块预测缓存6小时
+    predict_multi: 14400  # 多板块预测缓存4小时
+  max_size:
+    sectors: 10
+    predict_all: 50
+  global:
+    default_ttl: 3600
+    max_entries: 500
 ```
 
 ---
@@ -309,7 +326,7 @@ FinSectorForecast/
 │   ├── feature_engineering.py   # 特征工程模块
 │   ├── model_training.py        # 模型训练模块
 │   ├── predictor.py             # 预测核心模块
-│   ├── memory_cache.py          # 内存缓存系统
+│   ├── memory_cache.py          # LRU内存缓存
 │   ├── cache_manager.py         # 缓存管理器
 │   ├── section_cache.py         # 页面片段缓存
 │   └── background_task_manager.py # 后台任务管理
@@ -335,6 +352,9 @@ FinSectorForecast/
 | [`model_training.py`](src/model_training.py) | LightGBM/XGBoost模型训练与评估 |
 | [`predictor.py`](src/predictor.py) | 整合数据、特征、模型的预测核心 |
 | [`memory_cache.py`](src/memory_cache.py) | 高性能LRU缓存实现 |
+| [`cache_manager.py`](src/cache_manager.py) | 统一缓存管理 |
+| [`section_cache.py`](src/section_cache.py) | 页面片段级缓存 |
+| [`background_task_manager.py`](src/background_task_manager.py) | 后台异步任务管理 |
 
 ---
 
@@ -406,7 +426,6 @@ git push origin feature/your-feature-name
 
 如有问题或建议，欢迎通过以下方式联系：
 
-- 📧 Email: ❤️
 - 🐛 Issues: [GitHub Issues](https://github.com/L-newbie/FinSectorForecast/issues)
 
 ---
