@@ -96,7 +96,7 @@ _sectors_refresh_in_progress = False
 
 def get_cached_sectors():
     """获取缓存的板块列表 - 优先从cache_manager读取"""
-    global _sectors_cache, _sectors_cache_time
+    global _sectors_cache, _sectors_cache_time, _sectors_refresh_in_progress
     now = datetime.now()
     
     # 优先从 cache_manager 读取
@@ -110,6 +110,19 @@ def get_cached_sectors():
             # 同步到 cache_manager
             cache_manager.set('sectors', _sectors_cache)
             return _sectors_cache
+    
+    # 如果正在刷新中，等待刷新完成后再从缓存读取
+    if _sectors_refresh_in_progress:
+        import time
+        max_wait = 10  # 最多等待10秒
+        wait_time = 0
+        while _sectors_refresh_in_progress and wait_time < max_wait:
+            time.sleep(0.5)
+            wait_time += 0.5
+        # 刷新完成后从缓存读取
+        cached_data = cache_manager.get('sectors')
+        if cached_data is not None:
+            return cached_data
     
     # 缓存过期或不存在，重新获取
     fetcher = DataFetcher(config)
@@ -514,9 +527,8 @@ def predict_all():
             return jsonify(cached_data)
     
     try:
-        # 获取所有可用板块（从数据源获取，而非仅使用config中的）
-        fetcher = DataFetcher(config)
-        all_sectors = fetcher.get_sectors_list()
+        # 获取所有可用板块（使用缓存，而非直接调用get_sectors_list）
+        all_sectors = get_cached_sectors()
         
         print(f"\n开始预测 {len(all_sectors)} 个板块...")
         
@@ -693,9 +705,8 @@ def train_all():
         if custom_params:
             train_config = merge_config(train_config, custom_params)
         
-        # 获取所有可用板块
-        fetcher = DataFetcher(train_config)
-        sectors = fetcher.get_sectors_list()
+        # 获取所有可用板块（使用缓存）
+        sectors = get_cached_sectors()
         
         multi_predictor = MultiSectorPredictor(train_config)
         for sector in sectors:
@@ -858,8 +869,8 @@ def market_overview():
     try:
         fetcher = DataFetcher(config)
         
-        # 使用动态获取的板块列表，而不是config中的静态列表
-        sectors = fetcher.get_sectors_list()
+        # 使用缓存的板块列表
+        sectors = get_cached_sectors()
         market_data = []
         
         for sector in sectors:
@@ -1167,30 +1178,38 @@ def delayed_init():
     import time
     import os
     
-    # 检测是否是 Flask reloader 子进程
-    # WERKZEUG_RUN_MAIN 在子进程中为 'true'，主进程中不存在
+    # 检测是否是 Flask debug 模式
+    # WERKZEUG_RUN_MAIN 存在说明是 debug 模式
+    is_debug_mode = 'WERKZEUG_RUN_MAIN' in os.environ
     is_reloader = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
-    if is_reloader:
-        print(">>> 检测到 reloader 子进程，跳过初始化")
-        return
+    
+    if is_debug_mode:
+        # debug 模式下，只在子进程中执行初始化
+        if not is_reloader:
+            print(">>> 检测到 debug 模式主进程，跳过初始化（等待子进程）")
+            return
+        print(">>> 检测到 debug 模式子进程，执行初始化")
+    else:
+        # 非 debug 模式下，在唯一进程中执行初始化
+        print(">>> 非 debug 模式，执行初始化")
     
     def init_task():
         # 延迟2秒后执行，确保Flask完全启动
         time.sleep(2)
         try:
-            # 启动时初始化板块列表缓存
-            print(">>> 延迟任务: 初始化板块列表缓存...")
-            init_sectors_cache_on_startup()
+            # # 启动时初始化板块列表缓存
+            # print(">>> 延迟任务: 初始化板块列表缓存...")
+            # init_sectors_cache_on_startup()
             
             # 启动板块列表定时刷新任务（每30分钟刷新一次）
             start_sectors_refresh_scheduler(interval_minutes=30)
             print(">>> 延迟任务: 板块列表缓存系统初始化完成")
             
-            # ====== 新增: 启动后台训练和预测任务 ======
-            print(">>> 延迟任务: 启动后台训练和预测任务...")
-            init_background_tasks(config)
-            print(">>> 延迟任务: 后台任务系统初始化完成")
-            # ====== 新增结束 ======
+            # # ====== 新增: 启动后台训练和预测任务 ======
+            # print(">>> 延迟任务: 启动后台训练和预测任务...")
+            # init_background_tasks(config)
+            # print(">>> 延迟任务: 后台任务系统初始化完成")
+            # # ====== 新增结束 ======
             
         except Exception as e:
             print(f">>> 延迟初始化异常: {str(e)}")
@@ -1220,13 +1239,14 @@ if __name__ == '__main__':
     print("板块次日涨跌预测系统 - Web界面")
     print("=" * 60)
     
-    # 检测是否是 Flask reloader 子进程
+    # 检测是否是 Flask debug 模式
+    is_debug_mode = 'WERKZEUG_RUN_MAIN' in os.environ
     is_reloader = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
-    print(f">>> 运行模式: {'子进程' if is_reloader else '主进程'}")
+    print(f">>> 运行模式: {'debug子进程' if is_reloader else ('debug主进程' if is_debug_mode else '正常模式')}")
     
     # 启动缓存清理定时任务（每小时清理一次，删除超过6小时的缓存）
-    # 只在主进程或非 reloader 模式下启动
-    if not is_reloader:
+    # 只在子进程或非 debug 模式下启动
+    if is_reloader or not is_debug_mode:
         print("启动缓存清理定时任务...")
         start_cache_cleanup_scheduler(interval_hours=1, max_cache_age_hours=6)
     
@@ -1234,7 +1254,7 @@ if __name__ == '__main__':
     print("调度延迟初始化任务...")
     delayed_init()
     
-    # 自动打开浏览器（只在主进程或非 reloader 模式下打开）
+    # 自动打开浏览器（只在主进程或非 debug 模式下打开）
     server_url = "http://127.0.0.1:5000"
     if not is_reloader:
         print("自动打开浏览器...")

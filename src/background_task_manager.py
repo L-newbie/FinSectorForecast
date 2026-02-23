@@ -247,10 +247,11 @@ def start_background_training(config: Dict, sectors: List[str] = None):
     """在后台线程中启动训练任务"""
     def run_training():
         task = None  # 初始化task变量
-        sectors = None # 初始化sectors变量
+        sectors_local = None # 初始化sectors变量
         try:
             from src.data_fetcher import DataFetcher
             from src.predictor import SectorPredictor, MultiSectorPredictor
+            from src.cache_manager import cache_manager
             
             # 创建任务
             task = task_manager.create_task(
@@ -262,18 +263,26 @@ def start_background_training(config: Dict, sectors: List[str] = None):
             )
             task_manager.start_task(task)
             
-            # 获取板块列表
+            # 获取板块列表（优先从缓存获取）
             if not sectors:
-                fetcher = DataFetcher(config)
-                sectors = fetcher.get_sectors_list()
-                task.sectors = sectors
-                task.total_sectors = len(sectors)
+                # 先尝试从缓存获取
+                sectors_local = cache_manager.get('sectors')
+                if sectors_local is None:
+                    # 缓存不存在，从数据源获取
+                    fetcher = DataFetcher(config)
+                    sectors_local = fetcher.get_sectors_list()
+                    # 存入缓存
+                    cache_manager.set('sectors', sectors_local)
+                task.sectors = sectors_local
+                task.total_sectors = len(sectors_local)
+            else:
+                sectors_local = sectors
             
-            total = len(sectors)
+            total = len(sectors_local)
             success_count = 0
             results = {}
             
-            for i, sector in enumerate(sectors):
+            for i, sector in enumerate(sectors_local):
                 progress = int(((i + 1) / total) * 100)
                 task_manager.update_progress(
                     task.task_id,
@@ -299,7 +308,7 @@ def start_background_training(config: Dict, sectors: List[str] = None):
             print(f">>> 后台训练任务完成: 成功 {success_count}/{total}")
             
             # 训练完成后自动开始预测
-            start_background_prediction(config, sectors)
+            start_background_prediction(config, sectors_local)
             
         except Exception as e:
             print(f">>> 后台训练任务异常: {str(e)}")
@@ -316,10 +325,11 @@ def start_background_prediction(config: Dict, sectors: List[str] = None):
     """在后台线程中启动预测任务"""
     def run_prediction():
         task = None  # 初始化task变量
-        sectors = None  # 初始化sectors变量
+        sectors_local = None  # 初始化sectors变量
         try:
             from src.data_fetcher import DataFetcher
             from src.predictor import SectorPredictor, MultiSectorPredictor
+            from src.cache_manager import cache_manager
             
             # 创建任务
             task = task_manager.create_task(
@@ -331,19 +341,27 @@ def start_background_prediction(config: Dict, sectors: List[str] = None):
             )
             task_manager.start_task(task)
             
-            # 获取板块列表
+            # 获取板块列表（优先从缓存获取）
             if not sectors:
-                fetcher = DataFetcher(config)
-                sectors = fetcher.get_sectors_list()
-                task.sectors = sectors
-                task.total_sectors = len(sectors)
+                # 先尝试从缓存获取
+                sectors_local = cache_manager.get('sectors')
+                if sectors_local is None:
+                    # 缓存不存在，从数据源获取
+                    fetcher = DataFetcher(config)
+                    sectors_local = fetcher.get_sectors_list()
+                    # 存入缓存
+                    cache_manager.set('sectors', sectors_local)
+                task.sectors = sectors_local
+                task.total_sectors = len(sectors_local)
+            else:
+                sectors_local = sectors
             
-            total = len(sectors)
+            total = len(sectors_local)
             predictions = []
             success_count = 0
             error_count = 0
             
-            for i, sector in enumerate(sectors):
+            for i, sector in enumerate(sectors_local):
                 progress = int(((i + 1) / total) * 100)
                 task_manager.update_progress(
                     task.task_id,
@@ -420,16 +438,15 @@ def start_periodic_prediction(config: Dict, interval_seconds: int = 3600):
 
 
 def init_background_tasks(config: Dict):
-    return
-    # """初始化后台任务（在Flask应用启动时调用）"""
-    # print(">>> 初始化后台任务...")
+    """初始化后台任务（在Flask应用启动时调用）"""
+    print(">>> 初始化后台任务...")
     
-    # # 启动后台训练
-    # if task_manager.auto_train_on_startup:
-    #     start_background_training(config)
+    # 启动后台训练
+    if task_manager.auto_train_on_startup:
+        start_background_training(config)
     
-    # # 启动定时预测
-    # if task_manager.auto_predict_on_startup:
-    #     start_periodic_prediction(config, task_manager.predict_refresh_interval)
+    # 启动定时预测
+    if task_manager.auto_predict_on_startup:
+        start_periodic_prediction(config, task_manager.predict_refresh_interval)
     
-    # print(">>> 后台任务初始化完成")
+    print(">>> 后台任务初始化完成")

@@ -34,13 +34,25 @@ logging.basicConfig(
 logger = logging.getLogger('CacheManager')
 
 
+def _load_config() -> Dict:
+    """加载配置文件"""
+    try:
+        import yaml
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yaml')
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.warning(f"加载配置文件失败，使用默认配置: {e}")
+        return {}
+
+
 class CacheManager:
     """缓存管理器 - 纯内存缓存，无文件操作"""
     
     _instance = None
     _lock = threading.Lock()
     
-    def __new__(cls):
+    def __new__(cls, config: Optional[Dict] = None):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -48,7 +60,7 @@ class CacheManager:
                     cls._instance._initialized = False
         return cls._instance
     
-    def __init__(self):
+    def __init__(self, config: Optional[Dict] = None):
         if self._initialized:
             return
         
@@ -58,23 +70,38 @@ class CacheManager:
         
         self._initialized = True
         
-        # 缓存过期时间配置（秒）
+        # 加载配置：优先使用传入的config，否则从配置文件加载
+        if config is None:
+            config = _load_config()
+        
+        # 从配置中读取缓存设置，使用默认值作为后备
+        cache_config = config.get('cache', {})
+        
+        # 缓存过期时间配置（秒）- 从config读取，使用默认值作为后备
+        expiry_config = cache_config.get('expiry', {})
         self.cache_expiry = {
-            'sectors': 3600,            # 板块列表缓存1小时
-            'predict_all': 3600 * 6,      # 全板块预测缓存6小时
-            'predict_multi': 3600 * 4,    # 多板块预测缓存4小时
-            'analysis': 3600 * 2,         # 深度分析缓存2小时
-            'train': 3600 * 12,           # 训练结果缓存12小时
+            'sectors': expiry_config.get('sectors', 3600),            # 板块列表缓存1小时
+            'predict_all': expiry_config.get('predict_all', 3600 * 6),      # 全板块预测缓存6小时
+            'predict_multi': expiry_config.get('predict_multi', 3600 * 4),    # 多板块预测缓存4小时
+            'analysis': expiry_config.get('analysis', 3600 * 2),         # 深度分析缓存2小时
+            'train': expiry_config.get('train', 3600 * 12),           # 训练结果缓存12小时
         }
         
-        # 缓存容量配置
+        # 缓存容量配置 - 从config读取，使用默认值作为后备
+        max_size_config = cache_config.get('max_size', {})
         self.cache_max_size = {
-            'sectors': 10,               # 板块列表缓存容量
-            'predict_all': 50,
-            'predict_multi': 100,
-            'analysis': 100,
-            'train': 30,
+            'sectors': max_size_config.get('sectors', 10),               # 板块列表缓存容量
+            'predict_all': max_size_config.get('predict_all', 50),
+            'predict_multi': max_size_config.get('predict_multi', 100),
+            'analysis': max_size_config.get('analysis', 100),
+            'train': max_size_config.get('train', 30),
         }
+        
+        # 全局缓存配置 - 从config读取
+        global_config = cache_config.get('global', {})
+        self.default_ttl = global_config.get('default_ttl', 3600)  # 默认缓存过期时间（秒）
+        self.max_entries = global_config.get('max_entries', 500)  # 最大缓存条目数
+        self.cleanup_interval = global_config.get('cleanup_interval', 300)  # 自动清理间隔（秒）
         
         # 使用全局单例缓存
         self._memory_cache = memory_cache
@@ -82,9 +109,9 @@ class CacheManager:
         # 重新配置全局缓存（只在非 reloader 模式下执行）
         if not is_reloader:
             self._memory_cache.reconfigure(
-                default_ttl=3600,
-                max_size=500,
-                cleanup_interval=300
+                default_ttl=self.default_ttl,
+                max_size=self.max_entries,
+                cleanup_interval=self.cleanup_interval
             )
         
         # 初始化各个命名空间

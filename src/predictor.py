@@ -49,6 +49,38 @@ class SectorPredictor:
         self.history_days = self.config.get('data', {}).get('history_days', 365)
         self.feature_window = self.config.get('data', {}).get('feature_window', 60)
         self.probability_threshold = self.config.get('predict', {}).get('probability_threshold', 0.8)
+        
+        # 交易信号判定配置 - 从config中读取，使用默认值作为后备
+        signal_config = self.config.get('signal', {})
+        
+        # 置信度判定配置
+        confidence_config = signal_config.get('confidence', {})
+        self.confidence_very_high_offset = confidence_config.get('very_high_offset', 0.1)  # 非常高置信度的偏移量
+        self.confidence_medium_threshold = confidence_config.get('medium_threshold', 0.55)  # 中等置信度阈值
+        self.confidence_low_threshold = confidence_config.get('low_threshold', 0.45)  # 低置信度阈值
+        
+        # 交易信号判定配置
+        trading_config = signal_config.get('trading', {})
+        self.strong_signal_offset = trading_config.get('strong_signal_offset', 0.1)  # 强烈信号的偏移量
+        self.predicted_return_threshold = trading_config.get('predicted_return_threshold', 0)  # 预测涨跌幅阈值
+        
+        # 投资建议判定配置
+        recommendation_config = signal_config.get('recommendation', {})
+        self.recommend_high_prob_threshold = recommendation_config.get('high_prob_threshold', 0.7)  # 高概率阈值
+        self.recommend_medium_prob_threshold = recommendation_config.get('medium_prob_threshold', 0.55)  # 中等概率阈值
+        self.recommend_low_prob_threshold = recommendation_config.get('low_prob_threshold', 0.4)  # 低概率阈值
+        self.recommend_large_return_threshold = recommendation_config.get('large_return_threshold', 1.0)  # 大涨跌幅阈值
+        
+        # 信号分析配置
+        analysis_config = signal_config.get('analysis', {})
+        self.analysis_high_prob_threshold = analysis_config.get('high_prob_threshold', 0.6)  # 信号分析中的高概率阈值
+        self.analysis_low_prob_threshold = analysis_config.get('low_prob_threshold', 0.4)  # 信号分析中的低概率阈值
+        self.analysis_large_volatility_threshold = analysis_config.get('large_volatility_threshold', 1.0)  # 大波动阈值
+        
+        # 技术指标配置
+        technical_config = signal_config.get('technical', {})
+        self.rsi_overbought = technical_config.get('rsi_overbought', 70)  # RSI超买阈值
+        self.rsi_oversold = technical_config.get('rsi_oversold', 30)  # RSI超卖阈值
 
     def prepare_data(self, days: int = 365) -> bool:
         """
@@ -282,13 +314,14 @@ class SectorPredictor:
     def _get_confidence(self, probability: float) -> str:
         """获取预测置信度 - 使用配置中的阈值"""
         threshold = self.probability_threshold
-        if probability > threshold + 0.1:
+        # 使用配置中的阈值判定置信度等级
+        if probability > threshold + self.confidence_very_high_offset:
             return "非常高"
         elif probability > threshold:
             return "高"
-        elif probability > 0.55:
+        elif probability > self.confidence_medium_threshold:
             return "中等"
-        elif probability > 0.45:
+        elif probability > self.confidence_low_threshold:
             return "低"
         else:
             return "非常低"
@@ -296,35 +329,37 @@ class SectorPredictor:
     def _get_signal(self, probability: float, predicted_return: float) -> str:
         """获取交易信号 - 使用配置中的阈值"""
         threshold = self.probability_threshold
-        if probability > threshold + 0.1 and predicted_return > 0:
+        # 使用配置中的阈值判定交易信号
+        if probability > threshold + self.strong_signal_offset and predicted_return > self.predicted_return_threshold:
             return "强烈买入"
-        elif probability > threshold and predicted_return > 0:
+        elif probability > threshold and predicted_return > self.predicted_return_threshold:
             return "买入"
-        elif probability < 1 - threshold - 0.1 and predicted_return < 0:
+        elif probability < 1 - threshold - self.strong_signal_offset and predicted_return < self.predicted_return_threshold:
             return "强烈卖出"
-        elif probability < 1 - threshold and predicted_return < 0:
+        elif probability < 1 - threshold and predicted_return < self.predicted_return_threshold:
             return "卖出"
         else:
             return "观望"
 
     def _get_recommendation(self, probability: float, predicted_return: float) -> str:
-        """获取投资建议"""
-        if probability > 0.7:
-            if predicted_return > 1:
+        """获取投资建议 - 使用配置中的阈值"""
+        # 使用配置中的阈值判定投资建议
+        if probability > self.recommend_high_prob_threshold:
+            if predicted_return > self.recommend_large_return_threshold:
                 return f"板块{self.sector_name}预计上涨{predicted_return:.2f}%，建议重点关注"
             elif predicted_return > 0:
                 return f"板块{self.sector_name}预计小幅上涨{predicted_return:.2f}%，可适当关注"
             else:
                 return f"板块{self.sector_name}上涨概率较高但幅度有限，建议谨慎"
-        elif probability > 0.55:
+        elif probability > self.recommend_medium_prob_threshold:
             return f"板块{self.sector_name}有一定的上涨机会，建议保持关注"
-        elif probability < 0.4:
+        elif probability < self.recommend_low_prob_threshold:
             return f"板块{self.sector_name}下跌风险较大，建议回避"
         else:
             return f"板块{self.sector_name}方向不明，建议观望"
 
     def _generate_signal_analysis(self, probability: float, predicted_return: float, features: Dict) -> str:
-        """生成详细的交易信号分析说明"""
+        """生成详细的交易信号分析说明 - 使用配置中的阈值"""
         analysis_parts = []
         
         # 1. 整体信号解读
@@ -340,37 +375,37 @@ class SectorPredictor:
         else:
             analysis_parts.append(f"<div class='alert alert-warning'><strong>⏸️ 观望信号</strong>：模型预测该板块方向不明确，建议暂时观望等待机会。</div>")
         
-        # 2. 概率分析
-        prob_level = "高" if probability > 0.65 else "中等" if probability > 0.45 else "低"
+        # 2. 概率分析 - 使用配置中的阈值
+        prob_level = "高" if probability > self.analysis_high_prob_threshold else "中等" if probability > self.analysis_low_prob_threshold else "低"
         analysis_parts.append(f"<h6 class='text-primary mt-3'>📊 概率分析</h6>")
         analysis_parts.append(f"<p>上涨概率为 <strong>{probability*100:.1f}%</strong>，置信度{prob_level}。")
-        if probability > 0.6:
-            analysis_parts.append(f"该概率超过60%阈值，表明模型对上涨趋势有较强信心。</p>")
-        elif probability < 0.4:
-            analysis_parts.append(f"该概率低于40%，表明模型对下跌趋势有较强信心。</p>")
+        if probability > self.analysis_high_prob_threshold:
+            analysis_parts.append(f"该概率超过{int(self.analysis_high_prob_threshold*100)}%阈值，表明模型对上涨趋势有较强信心。</p>")
+        elif probability < self.analysis_low_prob_threshold:
+            analysis_parts.append(f"该概率低于{int(self.analysis_low_prob_threshold*100)}%，表明模型对下跌趋势有较强信心。</p>")
         else:
             analysis_parts.append(f"该概率处于中间区域，市场方向存在不确定性。</p>")
         
-        # 3. 涨跌幅分析
+        # 3. 涨跌幅分析 - 使用配置中的阈值
         analysis_parts.append(f"<h6 class='text-success mt-3'>📈 涨跌幅分析</h6>")
         analysis_parts.append(f"<p>预测涨跌幅为 <strong class='{'text-up' if predicted_return >= 0 else 'text-down'}'>{predicted_return:+.2f}%</strong>。")
-        if abs(predicted_return) > 1:
+        if abs(predicted_return) > self.analysis_large_volatility_threshold:
             analysis_parts.append(f"预期波动幅度较大，{'上涨空间可观' if predicted_return > 0 else '下跌风险显著'}。</p>")
         else:
             analysis_parts.append(f"预期波动幅度较小，市场可能处于震荡状态。</p>")
         
-        # 4. 技术指标分析
+        # 4. 技术指标分析 - 使用配置中的阈值
         if features:
             analysis_parts.append(f"<h6 class='text-warning mt-3' style='color: #ffd43b !important;'>🔧 技术指标分析</h6>")
             
-            # RSI分析
+            # RSI分析 - 使用配置中的超买超卖阈值
             rsi = features.get('rsi_14', 50)
-            if rsi > 70:
-                analysis_parts.append(f"<p>• <strong>RSI(14)={rsi:.1f}</strong>：处于超买区域，短期可能面临回调压力。</p>")
-            elif rsi < 30:
-                analysis_parts.append(f"<p>• <strong>RSI(14)={rsi:.1f}</strong>：处于超卖区域，可能存在反弹机会。</p>")
+            if rsi > self.rsi_overbought:
+                analysis_parts.append(f"<p>• <strong>RSI(14)={rsi:.1f}</strong>：处于超买区域（>{self.rsi_overbought}），短期可能面临回调压力。</p>")
+            elif rsi < self.rsi_oversold:
+                analysis_parts.append(f"<p>• <strong>RSI(14)={rsi:.1f}</strong>：处于超卖区域（<{self.rsi_oversold}），可能存在反弹机会。</p>")
             else:
-                analysis_parts.append(f"<p>• <strong>RSI(14)={rsi:.1f}</strong>：处于正常区间，无明显超买超卖信号。</p>")
+                analysis_parts.append(f"<p>• <strong>RSI(14)={rsi:.1f}</strong>：处于正常区间（{self.rsi_oversold}-{self.rsi_overbought}），无明显超买超卖信号。</p>")
             
             # MACD分析
             macd = features.get('macd', 0)

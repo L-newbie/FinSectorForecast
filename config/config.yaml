@@ -45,10 +45,117 @@ model:
 
 # 预测配置
 predict:
-  # 上涨概率阈值
+  # 上涨概率阈值（用于判定买入信号的基础阈值）
   probability_threshold: 0.8
   # 置信区间
   confidence_interval: 0.95
+
+# 交易信号判定规则配置
+signal:
+  # 置信度判定阈值（根据上涨概率判定置信度等级）
+  confidence:
+    # 非常高的阈值：概率 > probability_threshold + very_high_offset
+    very_high_offset: 0.1  # 非常高置信度的偏移量
+    # 高置信度阈值：概率 > probability_threshold
+    # 中等置信度阈值：概率 > medium_threshold
+    medium_threshold: 0.55  # 中等置信度阈值
+    # 低置信度阈值：概率 > low_threshold
+    low_threshold: 0.3  # 低置信度阈值
+  
+  # 交易信号判定阈值
+  trading:
+    # 强烈信号偏移量：概率 > probability_threshold + strong_signal_offset
+    strong_signal_offset: 0.1  # 强烈信号（强烈买入/强烈卖出）的偏移量
+    # 信号判定时预测涨跌幅必须满足的条件
+    predicted_return_threshold: 0  # 预测涨跌幅阈值，大于0才产生买入/强烈买入信号
+  
+  # 投资建议判定阈值
+  recommendation:
+    # 高概率阈值：概率 > high_prob_threshold 时给出积极建议
+    high_prob_threshold: 0.8  # 高概率阈值
+    # 中等概率阈值：概率 > medium_prob_threshold 时保持关注
+    medium_prob_threshold: 0.55  # 中等概率阈值
+    # 低概率阈值：概率 < low_prob_threshold 时建议回避
+    low_prob_threshold: 0.2  # 低概率阈值
+    # 大涨跌幅阈值：|预测涨跌幅| > large_return_threshold 时波动较大
+    large_return_threshold: 1.0  # 大涨跌幅阈值（百分比）
+  
+  # 信号分析中的阈值
+  analysis:
+    # 高概率判定阈值：概率 > high_prob_threshold 认为高概率
+    high_prob_threshold: 0.8  # 信号分析中的高概率阈值
+    # 低概率判定阈值：概率 < low_prob_threshold 认为低概率
+    low_prob_threshold: 0.2  # 信号分析中的低概率阈值
+    # 大波动阈值：|预测涨跌幅| > large_volatility_threshold 认为波动较大
+    large_volatility_threshold: 1.0  # 大波动阈值（百分比）
+  
+  # 技术指标阈值（用于信号判定）
+  technical:
+    # RSI超买阈值：RSI > overbought_threshold 认为超买
+    rsi_overbought: 80  # RSI超买阈值
+    # RSI超卖阈值：RSI < oversold_threshold 认为超卖
+    rsi_oversold: 20  # RSI超卖阈值
+
+# 技术指标计算参数配置
+technical_indicators:
+  # RSI指标参数
+  rsi:
+    # RSI周期列表（计算多个周期的RSI）
+    periods: [6, 12, 14]  # RSI计算周期，默认计算6日、12日、14日RSI
+  
+  # MACD指标参数
+  macd:
+    fast_period: 12  # 快线EMA周期
+    slow_period: 26  # 慢线EMA周期
+    signal_period: 9  # 信号线EMA周期
+  
+  # 布林带参数
+  bollinger:
+    period: 20  # 布林带中轨周期
+    std_dev: 2  # 标准差倍数
+  
+  # KDJ指标参数
+  kdj:
+    n_period: 9  # KDJ的N周期
+    m1_period: 3  # K值的M1平滑周期
+    m2_period: 3  # D值的M2平滑周期
+  
+  # 均线参数
+  moving_average:
+    short_period: 5  # 短期均线周期
+    medium_period: 10  # 中期均线周期
+    long_period: 20  # 长期均线周期
+  
+  # 滚动窗口参数（用于各类滚动计算）
+  rolling_windows:
+    short: 5  # 短期滚动窗口
+    medium: 10  # 中期滚动窗口
+    long: 20  # 长期滚动窗口
+    extended: 30  # 扩展滚动窗口
+
+# 缓存配置
+cache:
+  # 缓存过期时间（秒）
+  expiry:
+    sectors: 3600  # 板块列表缓存1小时
+    predict_all: 21600  # 全板块预测缓存6小时
+    predict_multi: 14400  # 多板块预测缓存4小时
+    analysis: 7200  # 深度分析缓存2小时
+    train: 43200  # 训练结果缓存12小时
+  
+  # 缓存容量配置
+  max_size:
+    sectors: 10  # 板块列表缓存容量
+    predict_all: 50  # 全板块预测缓存容量
+    predict_multi: 100  # 多板块预测缓存容量
+    analysis: 100  # 深度分析缓存容量
+    train: 30  # 训练结果缓存容量
+  
+  # 全局缓存配置
+  global:
+    default_ttl: 3600  # 默认缓存过期时间（秒）
+    max_entries: 500  # 最大缓存条目数
+    cleanup_interval: 300  # 自动清理间隔（秒）
 
 # 输出配置
 output:

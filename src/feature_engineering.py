@@ -30,6 +30,43 @@ class FeatureEngineer:
         """
         self.config = config or {}
         self.feature_window = self.config.get('data', {}).get('feature_window', 60)
+        
+        # 从配置中读取技术指标参数，使用默认值作为后备
+        ti_config = self.config.get('technical_indicators', {})
+        
+        # RSI参数
+        rsi_config = ti_config.get('rsi', {})
+        self.rsi_periods = rsi_config.get('periods', [6, 12, 14])  # RSI周期列表
+        
+        # MACD参数
+        macd_config = ti_config.get('macd', {})
+        self.macd_fast_period = macd_config.get('fast_period', 12)  # 快线EMA周期
+        self.macd_slow_period = macd_config.get('slow_period', 26)  # 慢线EMA周期
+        self.macd_signal_period = macd_config.get('signal_period', 9)  # 信号线EMA周期
+        
+        # 布林带参数
+        bollinger_config = ti_config.get('bollinger', {})
+        self.bollinger_period = bollinger_config.get('period', 20)  # 布林带中轨周期
+        self.bollinger_std_dev = bollinger_config.get('std_dev', 2)  # 标准差倍数
+        
+        # KDJ参数
+        kdj_config = ti_config.get('kdj', {})
+        self.kdj_n_period = kdj_config.get('n_period', 9)  # KDJ的N周期
+        self.kdj_m1_period = kdj_config.get('m1_period', 3)  # K值的M1平滑周期
+        self.kdj_m2_period = kdj_config.get('m2_period', 3)  # D值的M2平滑周期
+        
+        # 均线参数
+        ma_config = ti_config.get('moving_average', {})
+        self.ma_short_period = ma_config.get('short_period', 5)  # 短期均线周期
+        self.ma_medium_period = ma_config.get('medium_period', 10)  # 中期均线周期
+        self.ma_long_period = ma_config.get('long_period', 20)  # 长期均线周期
+        
+        # 滚动窗口参数
+        rolling_config = ti_config.get('rolling_windows', {})
+        self.rolling_short = rolling_config.get('short', 5)  # 短期滚动窗口
+        self.rolling_medium = rolling_config.get('medium', 10)  # 中期滚动窗口
+        self.rolling_long = rolling_config.get('long', 20)  # 长期滚动窗口
+        self.rolling_extended = rolling_config.get('extended', 30)  # 扩展滚动窗口
 
     def create_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -56,7 +93,7 @@ class FeatureEngineer:
         return df
 
     def _create_price_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """创建价格特征"""
+        """创建价格特征 - 使用配置中的参数"""
         # 确保有必要的列
         if 'close' not in df.columns:
             return df
@@ -68,39 +105,35 @@ class FeatureEngineer:
         if 'change_pct' not in df.columns:
             df['change_pct'] = pd.Series(close).pct_change() * 100
 
-        # 5日涨跌幅
-        df['return_5d'] = df['change_pct'].rolling(window=5).sum()
+        # 使用配置中的滚动窗口计算涨跌幅
+        df[f'return_{self.rolling_short}d'] = df['change_pct'].rolling(window=self.rolling_short).sum()
+        df[f'return_{self.rolling_medium}d'] = df['change_pct'].rolling(window=self.rolling_medium).sum()
+        df[f'return_{self.rolling_long}d'] = df['change_pct'].rolling(window=self.rolling_long).sum()
 
-        # 10日涨跌幅
-        df['return_10d'] = df['change_pct'].rolling(window=10).sum()
+        # 使用配置中的均线周期
+        df[f'ma{self.ma_long_period}'] = df['close'].rolling(window=self.ma_long_period).mean()
 
-        # 20日涨跌幅
-        df['return_20d'] = df['change_pct'].rolling(window=20).sum()
+        # 收盘价相对长期均线位置 (0-100)
+        df['ma_long_position'] = (df['close'] - df[f'ma{self.ma_long_period}']) / df[f'ma{self.ma_long_period}'] * 100
 
-        # 20日均线
-        df['ma20'] = df['close'].rolling(window=20).mean()
+        # 短期均线
+        df[f'ma{self.ma_short_period}'] = df['close'].rolling(window=self.ma_short_period).mean()
 
-        # 收盘价相对20日均线位置 (0-100)
-        df['ma20_position'] = (df['close'] - df['ma20']) / df['ma20'] * 100
+        # 短期均线与长期均线金叉死叉 (1=金叉, -1=死叉, 0=无)
+        ma_short_above_long = (df[f'ma{self.ma_short_period}'] > df[f'ma{self.ma_long_period}']).astype(int)
+        ma_short_above_long_prev = ma_short_above_long.shift(1)
+        df['ma_short_cross_long'] = (ma_short_above_long - ma_short_above_long_prev).fillna(0)
 
-        # 5日均线
-        df['ma5'] = df['close'].rolling(window=5).mean()
+        # 中期均线
+        df[f'ma{self.ma_medium_period}'] = df['close'].rolling(window=self.ma_medium_period).mean()
 
-        # 5日均线与20日均线金叉死叉 (1=金叉, -1=死叉, 0=无)
-        ma5_above_ma20 = (df['ma5'] > df['ma20']).astype(int)
-        ma5_above_ma20_prev = ma5_above_ma20.shift(1)
-        df['ma5_cross_ma20'] = (ma5_above_ma20 - ma5_above_ma20_prev).fillna(0)
+        # 中期均线与长期均线关系
+        df['ma_medium_above_long'] = (df[f'ma{self.ma_medium_period}'] > df[f'ma{self.ma_long_period}']).astype(int)
 
-        # 10日均线
-        df['ma10'] = df['close'].rolling(window=10).mean()
-
-        # 10日均线与20日均线关系
-        df['ma10_above_ma20'] = (df['ma10'] > df['ma20']).astype(int)
-
-        # 价格波动率
-        df['volatility_5d'] = df['change_pct'].rolling(window=5).std()
-        df['volatility_10d'] = df['change_pct'].rolling(window=10).std()
-        df['volatility_20d'] = df['change_pct'].rolling(window=20).std()
+        # 价格波动率 - 使用配置中的滚动窗口
+        df[f'volatility_{self.rolling_short}d'] = df['change_pct'].rolling(window=self.rolling_short).std()
+        df[f'volatility_{self.rolling_medium}d'] = df['change_pct'].rolling(window=self.rolling_medium).std()
+        df[f'volatility_{self.rolling_long}d'] = df['change_pct'].rolling(window=self.rolling_long).std()
 
         # 最高价/最低价相对位置
         if 'high' in df.columns and 'low' in df.columns:
@@ -109,7 +142,7 @@ class FeatureEngineer:
         return df
 
     def _create_fund_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """创建资金特征"""
+        """创建资金特征 - 使用配置中的参数"""
         # 资金净流入
         if 'net_inflow' not in df.columns:
             # 从涨跌幅模拟资金流向
@@ -119,60 +152,45 @@ class FeatureEngineer:
         if 'net_inflow_rate' not in df.columns and 'turnover' in df.columns:
             df['net_inflow_rate'] = df['net_inflow'] / df['turnover'] * 100
 
-        # 5日累计资金流向
-        df['net_inflow_5d'] = df['net_inflow'].rolling(window=5).sum()
+        # 使用配置中的滚动窗口计算累计资金流向
+        df[f'net_inflow_{self.rolling_short}d'] = df['net_inflow'].rolling(window=self.rolling_short).sum()
+        df[f'net_inflow_{self.rolling_medium}d'] = df['net_inflow'].rolling(window=self.rolling_medium).sum()
+        df[f'net_inflow_{self.rolling_long}d'] = df['net_inflow'].rolling(window=self.rolling_long).sum()
 
-        # 10日累计资金流向
-        df['net_inflow_10d'] = df['net_inflow'].rolling(window=10).sum()
+        # 资金净流入均值 - 使用配置中的滚动窗口
+        df[f'net_inflow_mean_{self.rolling_short}d'] = df['net_inflow'].rolling(window=self.rolling_short).mean()
+        df[f'net_inflow_mean_{self.rolling_medium}d'] = df['net_inflow'].rolling(window=self.rolling_medium).mean()
+        df[f'net_inflow_mean_{self.rolling_long}d'] = df['net_inflow'].rolling(window=self.rolling_long).mean()
 
-        # 20日累计资金流向
-        df['net_inflow_20d'] = df['net_inflow'].rolling(window=20).sum()
-
-        # 资金净流入均值
-        df['net_inflow_mean_5d'] = df['net_inflow'].rolling(window=5).mean()
-        df['net_inflow_mean_10d'] = df['net_inflow'].rolling(window=10).mean()
-        df['net_inflow_mean_20d'] = df['net_inflow'].rolling(window=20).mean()
-
-        # 资金净流入标准差
-        df['net_inflow_std_5d'] = df['net_inflow'].rolling(window=5).std()
-        df['net_inflow_std_10d'] = df['net_inflow'].rolling(window=10).std()
+        # 资金净流入标准差 - 使用配置中的滚动窗口
+        df[f'net_inflow_std_{self.rolling_short}d'] = df['net_inflow'].rolling(window=self.rolling_short).std()
+        df[f'net_inflow_std_{self.rolling_medium}d'] = df['net_inflow'].rolling(window=self.rolling_medium).std()
 
         # 资金净流入Z-Score
-        df['net_inflow_zscore'] = (df['net_inflow'] - df['net_inflow_mean_20d']) / df['net_inflow_std_10d']
+        df['net_inflow_zscore'] = (df['net_inflow'] - df[f'net_inflow_mean_{self.rolling_long}d']) / df[f'net_inflow_std_{self.rolling_medium}d']
 
-        # 资金流向趋势 (5日 vs 10日)
-        df['fund_trend'] = df['net_inflow_5d'] - df['net_inflow_10d']
+        # 资金流向趋势 (短期 vs 中期)
+        df['fund_trend'] = df[f'net_inflow_{self.rolling_short}d'] - df[f'net_inflow_{self.rolling_medium}d']
 
         return df
 
     def _create_momentum_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """创建动量特征"""
+        """创建动量特征 - 使用配置中的参数"""
         close = df['close'].values
 
-        # RSI指标
+        # RSI指标 - 使用配置中的周期列表
         delta = pd.Series(close).diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['rsi_14'] = 100 - (100 / (1 + rs))
+        for period in self.rsi_periods:
+            gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+            rs = gain / loss
+            df[f'rsi_{period}'] = 100 - (100 / (1 + rs))
 
-        # 6日RSI
-        gain_6 = (delta.where(delta > 0, 0)).rolling(window=6).mean()
-        loss_6 = (-delta.where(delta < 0, 0)).rolling(window=6).mean()
-        rs_6 = gain_6 / loss_6
-        df['rsi_6'] = 100 - (100 / (1 + rs_6))
-
-        # 12日RSI
-        gain_12 = (delta.where(delta > 0, 0)).rolling(window=12).mean()
-        loss_12 = (-delta.where(delta < 0, 0)).rolling(window=12).mean()
-        rs_12 = gain_12 / loss_12
-        df['rsi_12'] = 100 - (100 / (1 + rs_12))
-
-        # MACD
-        ema12 = pd.Series(close).ewm(span=12, adjust=False).mean()
-        ema26 = pd.Series(close).ewm(span=26, adjust=False).mean()
-        df['macd'] = ema12 - ema26
-        df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+        # MACD - 使用配置中的参数
+        ema_fast = pd.Series(close).ewm(span=self.macd_fast_period, adjust=False).mean()
+        ema_slow = pd.Series(close).ewm(span=self.macd_slow_period, adjust=False).mean()
+        df['macd'] = ema_fast - ema_slow
+        df['macd_signal'] = df['macd'].ewm(span=self.macd_signal_period, adjust=False).mean()
         df['macd_histogram'] = df['macd'] - df['macd_signal']
 
         # MACD金叉死叉
@@ -180,20 +198,20 @@ class FeatureEngineer:
         macd_above_signal_prev = macd_above_signal.shift(1)
         df['macd_cross'] = (macd_above_signal - macd_above_signal_prev).fillna(0)
 
-        # 布林带
-        ma20 = df['close'].rolling(window=20).mean()
-        std20 = df['close'].rolling(window=20).std()
-        df['bb_upper'] = ma20 + 2 * std20
-        df['bb_lower'] = ma20 - 2 * std20
+        # 布林带 - 使用配置中的参数
+        ma_period = df['close'].rolling(window=self.bollinger_period).mean()
+        std_period = df['close'].rolling(window=self.bollinger_period).std()
+        df['bb_upper'] = ma_period + self.bollinger_std_dev * std_period
+        df['bb_lower'] = ma_period - self.bollinger_std_dev * std_period
         df['bb_position'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower']) * 100
-        df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / ma20 * 100
+        df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / ma_period * 100
 
-        # KDJ指标
-        low_n = df['close'].rolling(window=9).min()
-        high_n = df['close'].rolling(window=9).max()
+        # KDJ指标 - 使用配置中的参数
+        low_n = df['close'].rolling(window=self.kdj_n_period).min()
+        high_n = df['close'].rolling(window=self.kdj_n_period).max()
         k = 100 * (df['close'] - low_n) / (high_n - low_n)
-        df['kdj_k'] = k.rolling(window=3).mean()
-        df['kdj_d'] = df['kdj_k'].rolling(window=3).mean()
+        df['kdj_k'] = k.rolling(window=self.kdj_m1_period).mean()
+        df['kdj_d'] = df['kdj_k'].rolling(window=self.kdj_m2_period).mean()
         df['kdj_j'] = 3 * df['kdj_k'] - 2 * df['kdj_d']
 
         # KDJ金叉死叉
@@ -204,7 +222,7 @@ class FeatureEngineer:
         return df
 
     def _create_volume_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """创建成交量特征"""
+        """创建成交量特征 - 使用配置中的参数"""
         # 成交量
         if 'volume' not in df.columns:
             df['volume'] = 1000000
@@ -212,24 +230,20 @@ class FeatureEngineer:
         # 成交量变化率
         df['volume_change_rate'] = df['volume'].pct_change() * 100
 
-        # 5日均量
-        df['volume_ma5'] = df['volume'].rolling(window=5).mean()
+        # 使用配置中的均线周期计算均量
+        df[f'volume_ma{self.ma_short_period}'] = df['volume'].rolling(window=self.ma_short_period).mean()
+        df[f'volume_ma{self.ma_medium_period}'] = df['volume'].rolling(window=self.ma_medium_period).mean()
+        df[f'volume_ma{self.ma_long_period}'] = df['volume'].rolling(window=self.ma_long_period).mean()
 
-        # 10日均量
-        df['volume_ma10'] = df['volume'].rolling(window=10).mean()
-
-        # 20日均量
-        df['volume_ma20'] = df['volume'].rolling(window=20).mean()
-
-        # 成交量相对均量
-        df['volume_ratio_5d'] = df['volume'] / df['volume_ma5']
-        df['volume_ratio_10d'] = df['volume'] / df['volume_ma10']
-        df['volume_ratio_20d'] = df['volume'] / df['volume_ma20']
+        # 成交量相对均量 - 使用配置中的周期
+        df[f'volume_ratio_{self.ma_short_period}d'] = df['volume'] / df[f'volume_ma{self.ma_short_period}']
+        df[f'volume_ratio_{self.ma_medium_period}d'] = df['volume'] / df[f'volume_ma{self.ma_medium_period}']
+        df[f'volume_ratio_{self.ma_long_period}d'] = df['volume'] / df[f'volume_ma{self.ma_long_period}']
 
         # 量价配合指标 (涨跌时成交量是否配合)
         # 上涨时放量=1, 下跌时缩量=1
         price_up = (df['change_pct'] > 0).astype(int)
-        volume_up = (df['volume'] > df['volume_ma5']).astype(int)
+        volume_up = (df['volume'] > df[f'volume_ma{self.ma_short_period}']).astype(int)
         df['price_volume_match'] = (price_up == volume_up).astype(int)
 
         # 能量潮 (OBV)
@@ -249,42 +263,42 @@ class FeatureEngineer:
         return df
 
     def _create_sequence_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """创建30天状态序列特征"""
+        """创建状态序列特征 - 使用配置中的参数"""
         window = self.feature_window
 
         # 创建状态序列 (涨跌状态: 1=涨, -1=跌, 0=平)
         df['status'] = np.sign(df['change_pct'])
 
-        # 创建30天状态序列
+        # 创建状态序列（使用配置中的feature_window）
         for i in range(1, window + 1):
             df[f'status_lag_{i}'] = df['status'].shift(i)
 
-        # 创建30天资金流向序列
+        # 创建资金流向序列
         for i in range(1, window + 1):
             df[f'fund_lag_{i}'] = df['net_inflow'].shift(i)
 
-        # 创建30天涨跌幅序列
+        # 创建涨跌幅序列
         for i in range(1, window + 1):
             df[f'return_lag_{i}'] = df['change_pct'].shift(i)
 
-        # 创建30天成交量序列
+        # 创建成交量序列
         for i in range(1, window + 1):
             df[f'volume_lag_{i}'] = df['volume'].shift(i)
 
-        # 过去30天的累计涨幅
-        df['cumulative_return_30d'] = df['close'].pct_change(periods=30) * 100
+        # 使用配置中的扩展滚动窗口计算累计涨幅
+        df[f'cumulative_return_{self.rolling_extended}d'] = df['close'].pct_change(periods=self.rolling_extended) * 100
 
-        # 过去30天的平均涨幅
-        df['mean_return_30d'] = df['change_pct'].rolling(window=30).mean()
+        # 使用配置中的扩展滚动窗口计算平均涨幅
+        df[f'mean_return_{self.rolling_extended}d'] = df['change_pct'].rolling(window=self.rolling_extended).mean()
 
-        # 过去30天上涨天数
-        df['up_days_30d'] = (df['status'] > 0).rolling(window=30).sum()
+        # 使用配置中的扩展滚动窗口计算上涨天数
+        df[f'up_days_{self.rolling_extended}d'] = (df['status'] > 0).rolling(window=self.rolling_extended).sum()
 
-        # 过去30天下跌天数
-        df['down_days_30d'] = (df['status'] < 0).rolling(window=30).sum()
+        # 使用配置中的扩展滚动窗口计算下跌天数
+        df[f'down_days_{self.rolling_extended}d'] = (df['status'] < 0).rolling(window=self.rolling_extended).sum()
 
-        # 过去30天资金净流入总和
-        df['total_fund_30d'] = df['net_inflow'].rolling(window=30).sum()
+        # 使用配置中的扩展滚动窗口计算资金净流入总和
+        df[f'total_fund_{self.rolling_extended}d'] = df['net_inflow'].rolling(window=self.rolling_extended).sum()
 
         # 状态转移矩阵特征
         # 连续上涨天数
