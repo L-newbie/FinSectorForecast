@@ -1199,6 +1199,20 @@ def delayed_init():
     thread.start()
 
 
+def open_browser(url):
+    """延迟打开浏览器"""
+    import threading
+    import time
+    import webbrowser
+    
+    def _open():
+        time.sleep(1.5)  # 等待服务器启动
+        webbrowser.open(url)
+    
+    thread = threading.Thread(target=_open, daemon=True)
+    thread.start()
+
+
 if __name__ == '__main__':
     import os
     
@@ -1220,6 +1234,12 @@ if __name__ == '__main__':
     print("调度延迟初始化任务...")
     delayed_init()
     
-    print("启动服务: http://127.0.0.1:5000")
+    # 自动打开浏览器（只在主进程或非 reloader 模式下打开）
+    server_url = "http://127.0.0.1:5000"
+    if not is_reloader:
+        print("自动打开浏览器...")
+        open_browser(server_url)
+    
+    print("启动服务: " + server_url)
     print("=" * 60)
     app.run(debug=True, host='0.0.0.0', port=5000)
